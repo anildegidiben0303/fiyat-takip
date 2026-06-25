@@ -744,7 +744,7 @@ app.delete('/api/gerceklesen/:id', (req, res) => {
 });
 
 // --- başlat ---
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Fiyat Takip Sistemi çalışıyor → http://localhost:${PORT}`);
   console.log(`📡 Ağdaki diğer bilgisayarlar için → http://${getLocalIP()}:${PORT}`);
 });
