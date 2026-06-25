@@ -1,0 +1,23 @@
+app = "fiyat-takip"
+primary_region = "ams"
+
+[build]
+  builder = "node"
+
+[env]
+  PORT = "3000"
+  DB_PATH = "/app/data/fiyatlar.db"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+[mounts]
+  source = "fiyat_data"
+  destination = "/app/data"
+
+[[vm]]
+  size = "shared-cpu-1x"
