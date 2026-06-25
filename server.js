@@ -6,7 +6,7 @@ const fs = require('fs');
 const ExcelJS = require('exceljs');
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 // --- uploads klasörü ---
 const uploadsDir = path.join(__dirname, 'public', 'uploads');
