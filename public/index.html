@@ -1802,25 +1802,30 @@ async function loadGerceklesenList(search = '') {
       fetch('/api/siparisler').then(r => r.json())
     ]);
 
-    // Siparişleri gerçekleşen formatına dönüştür
-    const siparisAsGerceklesen = (siparisRows || []).map(s => ({
-      ...s,
-      kesim_adedi: s.kesim_adedi || 0,
-      yuklenen_adet: s.yuklenen_adet || 0,
-      ikinci_kalite: 0,
-      satis_toplam: 0,
-      kumas_bedeli: 0,
-      aksesuar_bedeli: 0,
-      iscilik_bedeli: 0,
-      baski_nakis_yikama: 0,
-      kumas_detay: '[]',
-      aksesuar_detay: '[]',
-      iscilik_detay: '[]',
-      satis_toplam_detay: '[]',
-      yuklenen_adet_detay: '[]',
-      baski_nakis_yikama_detay: '[]',
-      _source: 'siparis'
-    }));
+    // Hangi siparişlerin zaten gerçekleşende olduğunu bul (mükerrer olmasın)
+    const gerceklesenSiparisIds = new Set((gerceklesenRows || []).map(g => g.siparis_id).filter(Boolean));
+
+    // Siparişleri gerçekleşen formatına dönüştür (zaten gerçekleşende olanları atla)
+    const siparisAsGerceklesen = (siparisRows || [])
+      .filter(s => !gerceklesenSiparisIds.has(s.id))
+      .map(s => ({
+        ...s,
+        kesim_adedi: s.kesim_adedi || 0,
+        yuklenen_adet: s.yuklenen_adet || 0,
+        ikinci_kalite: 0,
+        satis_toplam: 0,
+        kumas_bedeli: 0,
+        aksesuar_bedeli: 0,
+        iscilik_bedeli: 0,
+        baski_nakis_yikama: 0,
+        kumas_detay: '[]',
+        aksesuar_detay: '[]',
+        iscilik_detay: '[]',
+        satis_toplam_detay: '[]',
+        yuklenen_adet_detay: '[]',
+        baski_nakis_yikama_detay: '[]',
+        _source: 'siparis'
+      }));
 
     let rows = [...(gerceklesenRows || []), ...siparisAsGerceklesen];
     // Tarihe göre sırala (en yeni önce)

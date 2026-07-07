@@ -761,13 +761,19 @@ app.get('/api/gerceklesen/:id', (req, res) => {
   res.json(row);
 });
 
-// siparişi gerçekleşene aktar
+// siparişi gerçekleşene aktar (sipariş silinmez, her ikisi de kalır)
 app.post('/api/gerceklesen', (req, res) => {
   const { siparis_id } = req.body;
   if (!siparis_id) return res.status(400).json({ hata: 'siparis_id zorunludur' });
 
   const siparis = db.prepare('SELECT * FROM siparisler WHERE id = ?').get(siparis_id);
   if (!siparis) return res.status(404).json({ hata: 'Sipariş bulunamadı' });
+
+  // Bu sipariş için zaten gerçekleşen kaydı var mı kontrol et
+  const mevcut = db.prepare('SELECT id FROM gerceklesen WHERE siparis_id = ?').get(siparis_id);
+  if (mevcut) {
+    return res.json({ id: mevcut.id, mesaj: 'Zaten gerçekleşende mevcut' });
+  }
 
   const stmt = db.prepare(`
     INSERT INTO gerceklesen (musteri_adi, firma_adi, urun_aciklamasi, fiyat, para_birimi, miktar, gorsel, siparis_id)
@@ -785,10 +791,7 @@ app.post('/api/gerceklesen', (req, res) => {
     siparis.id
   );
 
-  // siparişi sil (görsel dosyasına dokunma)
-  db.prepare('DELETE FROM siparisler WHERE id = ?').run(siparis_id);
-
-  res.status(201).json({ id: info.lastInsertRowid, mesaj: 'Gerçekleşene aktarıldı' });
+  res.status(201).json({ id: info.lastInsertRowid, mesaj: 'Gerçekleşen kaydı oluşturuldu' });
 });
 
 // gerçekleşen güncelle (maliyet kalemleri + excel yükleme)
