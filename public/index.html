@@ -1392,7 +1392,6 @@ async function loadSiparisList(search = '') {
         </td>
         <td style="max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(row.notlar)}">${esc(row.notlar)}</td>
         <td style="white-space:nowrap;">
-          ${row.durum === 'Tamamlandı' ? `<button class="btn-success btn-sm" onclick="gercekleseneAktar(${row.id})" title="Gerçekleşene Aktar">💰</button>` : ''}
           <button class="btn-warning btn-sm" onclick="siparisDuzenle(${row.id})">✏️</button>
           <button class="btn-danger btn-sm" onclick="siparisSil(${row.id})">🗑</button>
         </td>
@@ -1797,7 +1796,35 @@ async function siparisSil(id) {
 // ==============================
 async function loadGerceklesenList(search = '') {
   try {
-    let rows = await fetch('/api/gerceklesen').then(r => r.json());
+    // Gerçekleşen ve siparişleri birlikte çek
+    const [gerceklesenRows, siparisRows] = await Promise.all([
+      fetch('/api/gerceklesen').then(r => r.json()),
+      fetch('/api/siparisler').then(r => r.json())
+    ]);
+
+    // Siparişleri gerçekleşen formatına dönüştür
+    const siparisAsGerceklesen = (siparisRows || []).map(s => ({
+      ...s,
+      kesim_adedi: s.kesim_adedi || 0,
+      yuklenen_adet: s.yuklenen_adet || 0,
+      ikinci_kalite: 0,
+      satis_toplam: (s.fiyat || 0) * (s.miktar || 0),
+      kumas_bedeli: 0,
+      aksesuar_bedeli: 0,
+      iscilik_bedeli: 0,
+      baski_nakis_yikama: 0,
+      kumas_detay: '[]',
+      aksesuar_detay: '[]',
+      iscilik_detay: '[]',
+      satis_toplam_detay: '[]',
+      yuklenen_adet_detay: '[]',
+      baski_nakis_yikama_detay: '[]',
+      _source: 'siparis'
+    }));
+
+    let rows = [...(gerceklesenRows || []), ...siparisAsGerceklesen];
+    // Tarihe göre sırala (en yeni önce)
+    rows.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
 
     if (search) {
       const q = search.toLowerCase();
@@ -1848,8 +1875,8 @@ async function loadGerceklesenList(search = '') {
         <td class="${karClass}">${satisToplam > 0 ? ((kar / satisToplam) * 100).toFixed(1) + '%' : '-'}</td>
         <td style="white-space:nowrap;">
           ${row.excel_dosya ? `<a href="${esc(row.excel_dosya)}" target="_blank" class="btn-outline btn-sm" style="text-decoration:none;display:inline-block;" title="Maliyet Excel'ini Aç">📥</a>` : ''}
-          <button class="btn-warning btn-sm" onclick="gerceklesenDuzenle(${row.id})">✏️</button>
-          <button class="btn-danger btn-sm" onclick="gerceklesenSil(${row.id})">🗑</button>
+          <button class="btn-warning btn-sm" onclick="gerceklesenDuzenle(${row.id}, '${row._source || 'gerceklesen'}')">✏️</button>
+          <button class="btn-danger btn-sm" onclick="gerceklesenSil(${row.id}, '${row._source || 'gerceklesen'}')">🗑</button>
         </td>
       `;
       gerceklesenTbody.appendChild(tr);
@@ -1955,8 +1982,24 @@ async function gercekleseneAktar(siparisId) {
 // ==============================
 // Gerçekleşen düzenle
 // ==============================
-async function gerceklesenDuzenle(id) {
+async function gerceklesenDuzenle(id, source) {
+  source = source || 'gerceklesen';
   try {
+    // Sipariş kaynaklıysa önce gerçekleşene aktar
+    if (source === 'siparis') {
+      const aktarRes = await fetch('/api/gerceklesen', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ siparis_id: id }),
+      });
+      if (!aktarRes.ok) {
+        const err = await aktarRes.json().catch(() => ({ hata: 'Aktarma hatası' }));
+        return alert('Hata: ' + err.hata);
+      }
+      const aktarData = await aktarRes.json();
+      id = aktarData.id; // Yeni gerçekleşen ID'sini kullan
+    }
+
     const row = await fetch(`/api/gerceklesen/${id}`).then(r => r.json());
 
     document.querySelector('[name="gerceklesenEditId"]').value = row.id;
@@ -2051,10 +2094,16 @@ document.getElementById('btnGerceklesenEditSave').addEventListener('click', asyn
 // ==============================
 // Gerçekleşen sil
 // ==============================
-async function gerceklesenSil(id) {
-  if (!confirm('Bu gerçekleşen kaydını silmek istediğine emin misin?')) return;
-  await fetch(`/api/gerceklesen/${id}`, { method: 'DELETE' });
-  showToast('🗑 Gerçekleşen kaydı silindi');
+async function gerceklesenSil(id, source) {
+  source = source || 'gerceklesen';
+  if (!confirm('Bu kaydı silmek istediğine emin misin?')) return;
+  if (source === 'siparis') {
+    await fetch('/api/siparisler/' + id, { method: 'DELETE' });
+    showToast('🗑 Sipariş silindi');
+  } else {
+    await fetch('/api/gerceklesen/' + id, { method: 'DELETE' });
+    showToast('🗑 Gerçekleşen kaydı silindi');
+  }
   loadGerceklesenList(gerceklesenSearchInput.value);
 }
 
