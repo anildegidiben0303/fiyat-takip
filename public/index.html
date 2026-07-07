@@ -1829,9 +1829,9 @@ async function loadGerceklesenList(search = '') {
         <td>${row.yuklenen_adet || 0}</td>
         <td>${row.ikinci_kalite || 0}</td>
         <td class="price ${pc}">${satisToplam > 0 ? para + ' ' + formatPara(satisToplam) : '<span style="color:#94a3b8;">-</span>'}</td>
-        <td class="price">₺ ${formatPara(row.kumas_bedeli || 0)}</td>
-        <td class="price">₺ ${formatPara(row.aksesuar_bedeli || 0)}</td>
-        <td class="price">₺ ${formatPara(row.iscilik_bedeli || 0)}</td>
+        <td class="price">₺ ${formatPara(row.kumas_bedeli || 0)}${row.kesim_adedi > 0 ? ' <span style="color:#94a3b8;font-size:11px;">(₺ ' + formatPara((row.kumas_bedeli || 0) / row.kesim_adedi) + '/ad)</span>' : ''}</td>
+        <td class="price">₺ ${formatPara(row.aksesuar_bedeli || 0)}${row.kesim_adedi > 0 ? ' <span style="color:#94a3b8;font-size:11px;">(₺ ' + formatPara((row.aksesuar_bedeli || 0) / row.kesim_adedi) + '/ad)</span>' : ''}</td>
+        <td class="price">₺ ${formatPara(row.iscilik_bedeli || 0)}${row.kesim_adedi > 0 ? ' <span style="color:#94a3b8;font-size:11px;">(₺ ' + formatPara((row.iscilik_bedeli || 0) / row.kesim_adedi) + '/ad)</span>' : ''}</td>
         <td class="price">₺ ${formatPara(maliyet)}</td>
         <td class="${karClass}">${satisToplam > 0 ? (kar >= 0 ? '✅' : '❌') + ' ₺ ' + formatPara(kar) : '<span style="color:#94a3b8;">-</span>'}</td>
         <td class="${karClass}">${satisToplam > 0 ? ((kar / satisToplam) * 100).toFixed(1) + '%' : '-'}</td>
