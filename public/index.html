@@ -1068,6 +1068,18 @@
               <div><label>Çek Sahibi</label><input type="text" name="odemeEditCekSahibi" placeholder="Çeki veren"></div>
             </div>
           </div>
+          <!-- banka kredisi alanları -->
+          <div class="full kredi-fields" id="krediFields">
+            <div class="form-grid" style="margin-top:8px;padding-top:8px;border-top:1px solid #e2e8f0;">
+              <div>
+                <label>Vade (Ay)</label>
+                <input type="number" name="odemeEditKrediVade" id="odemeEditKrediVade" value="1" min="1" max="120" placeholder="Kaç ay?">
+              </div>
+              <div style="display:flex;align-items:flex-end;font-size:12px;color:#64748b;padding-bottom:8px;">
+                İlk ödeme tarihinden itibaren her ay otomatik ödeme kaydı oluşturulur.
+              </div>
+            </div>
+          </div>
         </div>
       </form>
     </div>
@@ -2267,6 +2279,8 @@ function openOdemeModal(id) {
   document.getElementById('odemeModalTitle').textContent = id ? '✏️ Ödeme Düzenle' : '💵 Yeni Ödeme';
   document.getElementById('odemeEditTuru').value = 'Havale/EFT';
   document.getElementById('cekFields').classList.remove('show');
+  document.getElementById('krediFields').classList.remove('show');
+  document.querySelector('[name="odemeEditKrediVade"]').value = '1';
   odemeEditForm.reset();
   document.querySelector('[name="odemeEditId"]').value = '';
   document.querySelector('[name="odemeEditDurum"]').value = 'Bekliyor';
@@ -2296,13 +2310,13 @@ function openOdemeModal(id) {
 function closeOdemeModal() {
   odemeEditModal.classList.remove('show');
   document.getElementById('cekFields').classList.remove('show');
+  document.getElementById('krediFields').classList.remove('show');
 }
 
-// ödeme türü değişince çek alanlarını göster/gizle
+// ödeme türü değişince çek/kredi alanlarını göster/gizle
 document.getElementById('odemeEditTuru').addEventListener('change', function() {
-  const cekFields = document.getElementById('cekFields');
-  if (this.value === 'Çek') cekFields.classList.add('show');
-  else cekFields.classList.remove('show');
+  document.getElementById('cekFields').classList.toggle('show', this.value === 'Çek');
+  document.getElementById('krediFields').classList.toggle('show', this.value === 'Banka Kredisi');
 });
 
 // modal dışına tıklayınca kapat
@@ -2328,6 +2342,41 @@ document.getElementById('btnOdemeEditSave').addEventListener('click', async () =
 
   if (!body.tutar || !body.vade_tarihi) {
     return alert('Tutar ve vade tarihi zorunludur.');
+  }
+
+  // Banka Kredisi: çoklu ödeme oluştur
+  if (body.odeme_turu === 'Banka Kredisi' && !id) {
+    const vade = parseInt(document.querySelector('[name="odemeEditKrediVade"]').value) || 1;
+    if (vade < 1) return alert('Vade en az 1 ay olmalıdır.');
+
+    const aylikTutar = body.tutar / vade;
+    const ilkTarih = new Date(body.vade_tarihi);
+    let basarili = 0;
+
+    for (let i = 0; i < vade; i++) {
+      const taksitTarih = new Date(ilkTarih);
+      taksitTarih.setMonth(taksitTarih.getMonth() + i);
+      const tarihStr = taksitTarih.toISOString().split('T')[0];
+
+      const taksitBody = {
+        ...body,
+        tutar: Math.round(aylikTutar * 100) / 100,
+        vade_tarihi: tarihStr,
+        aciklama: body.aciklama + ' (Taksit ' + (i + 1) + '/' + vade + ')'
+      };
+
+      const res = await fetch('/api/odemeler', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(taksitBody)
+      });
+      if (res.ok) basarili++;
+    }
+
+    showToast('✅ ' + basarili + '/' + vade + ' taksit kaydedildi!');
+    closeOdemeModal();
+    loadOdemeler();
+    return;
   }
 
   const url = id ? '/api/odemeler/' + id : '/api/odemeler';
