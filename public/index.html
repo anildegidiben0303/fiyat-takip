@@ -17,7 +17,7 @@
   .topbar {
     background: #1e293b;
     color: #fff;
-    padding: 14px 24px;
+    padding: 14px 12px;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -30,7 +30,7 @@
     display: flex;
     background: #fff;
     border-bottom: 2px solid #e2e8f0;
-    padding: 0 24px;
+    padding: 0 8px;
     gap: 0;
   }
   .tab-btn {
@@ -65,7 +65,7 @@
   .tab-content { display: none; }
   .tab-content.active { display: block; }
 
-  .main { max-width: 1200px; margin: 24px auto; padding: 0 16px; }
+  .main { max-width: none; margin: 12px 8px; }
 
   .card {
     background: #fff;
@@ -342,7 +342,7 @@
 
   /* bant grid */
   #bantView{display:none}#bantView.active{display:block}
-  body.bant-full .main{max-width:none;padding:0 8px}
+  body.bant-full .main{max-width:none;margin:0}
   body.bant-full .topbar,body.bant-full .tab-bar{display:none}
   .bant-grid-wrap{overflow:auto;max-height:80vh;border:1px solid #e2e8f0;border-radius:8px}
   .bant-grid{border-collapse:collapse;font-size:11px;white-space:nowrap}
@@ -362,7 +362,7 @@
     .summary-cards { flex-direction: column; }
   }
   #bantView{display:none}#bantView.active{display:block}
-  body.bant-full .main{max-width:none;padding:0 8px}body.bant-full .topbar,body.bant-full .tab-bar{display:none}
+  body.bant-full .main{max-width:none;margin:0}body.bant-full .topbar,body.bant-full .tab-bar{display:none}
   .bant-grid-wrap{overflow:auto;max-height:80vh;border:1px solid #e2e8f0;border-radius:8px}
   .bant-grid{border-collapse:collapse;font-size:11px;white-space:nowrap}
   .bant-grid th{position:sticky;top:0;z-index:2;background:#1e293b;color:#fff;padding:6px 8px;font-size:10px;text-align:center;border:1px solid #334155;min-width:220px}
