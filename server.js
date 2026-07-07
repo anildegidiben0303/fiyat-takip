@@ -152,6 +152,8 @@ try { db.exec('ALTER TABLE gerceklesen ADD COLUMN satis_toplam_detay TEXT DEFAUL
 try { db.exec('ALTER TABLE gerceklesen ADD COLUMN kumas_bedeli_detay TEXT DEFAULT \'[]\''); } catch (e) { /* zaten var */ }
 try { db.exec('ALTER TABLE gerceklesen ADD COLUMN aksesuar_bedeli_detay TEXT DEFAULT \'[]\''); } catch (e) { /* zaten var */ }
 try { db.exec('ALTER TABLE gerceklesen ADD COLUMN iscilik_bedeli_detay TEXT DEFAULT \'[]\''); } catch (e) { /* zaten var */ }
+try { db.exec('ALTER TABLE gerceklesen ADD COLUMN baski_nakis_yikama REAL DEFAULT 0'); } catch (e) { /* zaten var */ }
+try { db.exec('ALTER TABLE gerceklesen ADD COLUMN baski_nakis_yikama_detay TEXT DEFAULT \'[]\''); } catch (e) { /* zaten var */ }
 
 // --- ödeme planı tablosu ---
 db.exec(`
@@ -793,7 +795,7 @@ app.post('/api/gerceklesen', (req, res) => {
 app.put('/api/gerceklesen/:id', excelUpload.single('excel_dosya'), (req, res) => {
   const { musteri_adi, firma_adi, urun_aciklamasi, fiyat, para_birimi, miktar,
           kesim_adedi, yuklenen_adet, ikinci_kalite, kumas_bedeli, aksesuar_bedeli, iscilik_bedeli, satis_toplam, termin,
-          yuklenen_adet_detay, satis_toplam_detay, kumas_bedeli_detay, aksesuar_bedeli_detay, iscilik_bedeli_detay } = req.body;
+          yuklenen_adet_detay, satis_toplam_detay, kumas_bedeli_detay, aksesuar_bedeli_detay, iscilik_bedeli_detay, baski_nakis_yikama, baski_nakis_yikama_detay } = req.body;
 
   if (!musteri_adi || !urun_aciklamasi || fiyat == null) {
     return res.status(400).json({ hata: 'Müşteri adı, ürün açıklaması ve fiyat zorunludur' });
@@ -816,7 +818,7 @@ app.put('/api/gerceklesen/:id', excelUpload.single('excel_dosya'), (req, res) =>
     UPDATE gerceklesen
     SET musteri_adi=?, firma_adi=?, urun_aciklamasi=?, fiyat=?, para_birimi=?, miktar=?,
         kesim_adedi=?, yuklenen_adet=?, ikinci_kalite=?, kumas_bedeli=?, aksesuar_bedeli=?, iscilik_bedeli=?, satis_toplam=?, termin=?, excel_dosya=?,
-        yuklenen_adet_detay=?, satis_toplam_detay=?, kumas_bedeli_detay=?, aksesuar_bedeli_detay=?, iscilik_bedeli_detay=?
+        yuklenen_adet_detay=?, satis_toplam_detay=?, kumas_bedeli_detay=?, aksesuar_bedeli_detay=?, iscilik_bedeli_detay=?, baski_nakis_yikama=?, baski_nakis_yikama_detay=?
     WHERE id=?
   `).run(
     musteri_adi,
@@ -839,6 +841,8 @@ app.put('/api/gerceklesen/:id', excelUpload.single('excel_dosya'), (req, res) =>
     kumas_bedeli_detay || '[]',
     aksesuar_bedeli_detay || '[]',
     iscilik_bedeli_detay || '[]',
+    baski_nakis_yikama || 0,
+    baski_nakis_yikama_detay || '[]',
     req.params.id
   );
 

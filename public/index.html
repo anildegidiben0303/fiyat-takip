@@ -636,6 +636,7 @@
               <th>Kumaş</th>
               <th>Aksesuar</th>
               <th>İşçilik</th>
+              <th>Baskı/Nakış/Yıkama</th>
               <th>Top.Maliyet</th>
               <th>Kâr/Zarar</th>
               <th>Kâr %</th>
@@ -873,6 +874,13 @@
             <div style="font-weight:700;font-size:16px;color:#059669;margin-bottom:6px;" id="iscilikBedeliToplam">₺ 0,00</div>
             <div id="iscilikBedeliDetayList" style="display:flex;flex-direction:column;gap:4px;"></div>
             <button type="button" class="btn-outline btn-sm" onclick="detayEkle('iscilik_bedeli')" style="margin-top:6px;">+ Ekle</button>
+          </div>
+          <div class="full" style="border-top:1px solid #e2e8f0;padding-top:12px;margin-top:8px;">
+            <label>🎨 Baskı/Nakış/Yıkama</label>
+            <input type="hidden" name="gerceklesenEditBaskiNakisYikama" value="0">
+            <div style="font-weight:700;font-size:16px;color:#059669;margin-bottom:6px;" id="baskiNakisYikamaToplam">₺ 0,00</div>
+            <div id="baskiNakisYikamaDetayList" style="display:flex;flex-direction:column;gap:4px;"></div>
+            <button type="button" class="btn-outline btn-sm" onclick="detayEkle('baski_nakis_yikama')" style="margin-top:6px;">+ Ekle</button>
           </div>
           <div class="full" style="border-top:1px solid #e2e8f0;padding-top:12px;margin-top:8px;">
             <label>📥 Excel Yükle</label>
@@ -1216,7 +1224,7 @@ function closeGerceklesenEditModal() {
   gerceklesenEditForm.reset();
   document.getElementById('gerceklesenEditExcel').value = '';
   // Alt kalem dizilerini sıfırla
-  ['yuklenen_adet', 'satis_toplam', 'kumas_bedeli', 'aksesuar_bedeli', 'iscilik_bedeli'].forEach(function(fieldKey) {
+  ['yuklenen_adet', 'satis_toplam', 'kumas_bedeli', 'aksesuar_bedeli', 'iscilik_bedeli', 'baski_nakis_yikama'].forEach(function(fieldKey) {
     gerceklesenDetaylar[fieldKey] = [];
     detayRender(fieldKey);
   });
@@ -1633,7 +1641,8 @@ const gerceklesenDetaylar = {
   satis_toplam: [],
   kumas_bedeli: [],
   aksesuar_bedeli: [],
-  iscilik_bedeli: []
+  iscilik_bedeli: [],
+  baski_nakis_yikama: []
 };
 
 const detayFieldInfo = {
@@ -1641,7 +1650,8 @@ const detayFieldInfo = {
   satis_toplam:    { containerId: 'satisToplamDetayList',    toplamId: 'satisToplamDetayToplam',    inputName: 'gerceklesenEditSatisToplam',    suffix: '',      prefix: '₺ ', isCount: false },
   kumas_bedeli:    { containerId: 'kumasBedeliDetayList',    toplamId: 'kumasBedeliToplam',    inputName: 'gerceklesenEditKumasBedeli',    suffix: '',      prefix: '₺ ', isCount: false },
   aksesuar_bedeli: { containerId: 'aksesuarBedeliDetayList', toplamId: 'aksesuarBedeliToplam', inputName: 'gerceklesenEditAksesuarBedeli', suffix: '',      prefix: '₺ ', isCount: false },
-  iscilik_bedeli:  { containerId: 'iscilikBedeliDetayList',  toplamId: 'iscilikBedeliToplam',  inputName: 'gerceklesenEditIscilikBedeli',  suffix: '',      prefix: '₺ ', isCount: false }
+  iscilik_bedeli:  { containerId: 'iscilikBedeliDetayList',  toplamId: 'iscilikBedeliToplam',  inputName: 'gerceklesenEditIscilikBedeli',  suffix: '',      prefix: '₺ ', isCount: false },
+  baski_nakis_yikama: { containerId: 'baskiNakisYikamaDetayList', toplamId: 'baskiNakisYikamaToplam', inputName: 'gerceklesenEditBaskiNakisYikama', suffix: '', prefix: '₺ ', isCount: false }
 };
 
 function detayEkle(fieldKey, aciklama, deger) {
@@ -1807,7 +1817,7 @@ async function loadGerceklesenList(search = '') {
 
     rows.forEach(row => {
       const satisToplam = row.satis_toplam || 0;
-      const maliyet = (row.kumas_bedeli || 0) + (row.aksesuar_bedeli || 0) + (row.iscilik_bedeli || 0);
+      const maliyet = (row.kumas_bedeli || 0) + (row.aksesuar_bedeli || 0) + (row.iscilik_bedeli || 0) + (row.baski_nakis_yikama || 0);
       toplamSatis += satisToplam;
       toplamMaliyet += maliyet;
 
@@ -1832,6 +1842,7 @@ async function loadGerceklesenList(search = '') {
         <td class="price">₺ ${formatPara(row.kumas_bedeli || 0)}${row.kesim_adedi > 0 ? ' <span style="color:#94a3b8;font-size:11px;">(₺ ' + formatPara((row.kumas_bedeli || 0) / row.kesim_adedi) + '/ad)</span>' : ''}</td>
         <td class="price">₺ ${formatPara(row.aksesuar_bedeli || 0)}${row.kesim_adedi > 0 ? ' <span style="color:#94a3b8;font-size:11px;">(₺ ' + formatPara((row.aksesuar_bedeli || 0) / row.kesim_adedi) + '/ad)</span>' : ''}</td>
         <td class="price">₺ ${formatPara(row.iscilik_bedeli || 0)}${row.kesim_adedi > 0 ? ' <span style="color:#94a3b8;font-size:11px;">(₺ ' + formatPara((row.iscilik_bedeli || 0) / row.kesim_adedi) + '/ad)</span>' : ''}</td>
+        <td class="price">₺ ${formatPara(row.baski_nakis_yikama || 0)}${row.kesim_adedi > 0 ? ' <span style="color:#94a3b8;font-size:11px;">(₺ ' + formatPara((row.baski_nakis_yikama || 0) / row.kesim_adedi) + '/ad)</span>' : ''}</td>
         <td class="price">₺ ${formatPara(maliyet)}</td>
         <td class="${karClass}">${satisToplam > 0 ? (kar >= 0 ? '✅' : '❌') + ' ₺ ' + formatPara(kar) : '<span style="color:#94a3b8;">-</span>'}</td>
         <td class="${karClass}">${satisToplam > 0 ? ((kar / satisToplam) * 100).toFixed(1) + '%' : '-'}</td>
@@ -1856,7 +1867,7 @@ async function loadGerceklesenList(search = '') {
     const aylar = {};
     rows.forEach(row => {
       const satis = row.satis_toplam || 0;
-      const maliyet = (row.kumas_bedeli || 0) + (row.aksesuar_bedeli || 0) + (row.iscilik_bedeli || 0);
+      const maliyet = (row.kumas_bedeli || 0) + (row.aksesuar_bedeli || 0) + (row.iscilik_bedeli || 0) + (row.baski_nakis_yikama || 0);
       const tarih = row.created_at ? row.created_at.substring(0, 7) : '-';
       if (!aylar[tarih]) aylar[tarih] = { satis: 0, maliyet: 0, adet: 0 };
       aylar[tarih].satis += satis;
@@ -1963,9 +1974,10 @@ async function gerceklesenDuzenle(id) {
     document.querySelector('[name="gerceklesenEditKumasBedeli"]').value = row.kumas_bedeli || 0;
     document.querySelector('[name="gerceklesenEditAksesuarBedeli"]').value = row.aksesuar_bedeli || 0;
     document.querySelector('[name="gerceklesenEditIscilikBedeli"]').value = row.iscilik_bedeli || 0;
+    document.querySelector('[name="gerceklesenEditBaskiNakisYikama"]').value = row.baski_nakis_yikama || 0;
 
     // Alt kalem detaylarını JSON sütunlarından yükle
-    ['yuklenen_adet', 'satis_toplam', 'kumas_bedeli', 'aksesuar_bedeli', 'iscilik_bedeli'].forEach(function(fieldKey) {
+    ['yuklenen_adet', 'satis_toplam', 'kumas_bedeli', 'aksesuar_bedeli', 'iscilik_bedeli', 'baski_nakis_yikama'].forEach(function(fieldKey) {
       gerceklesenDetaylar[fieldKey] = [];
       try {
         var colName = fieldKey + '_detay';
@@ -2014,6 +2026,8 @@ document.getElementById('btnGerceklesenEditSave').addEventListener('click', asyn
   formData.append('kumas_bedeli_detay', JSON.stringify(gerceklesenDetaylar.kumas_bedeli));
   formData.append('aksesuar_bedeli_detay', JSON.stringify(gerceklesenDetaylar.aksesuar_bedeli));
   formData.append('iscilik_bedeli_detay', JSON.stringify(gerceklesenDetaylar.iscilik_bedeli));
+  formData.append('baski_nakis_yikama', document.querySelector('[name="gerceklesenEditBaskiNakisYikama"]').value);
+  formData.append('baski_nakis_yikama_detay', JSON.stringify(gerceklesenDetaylar.baski_nakis_yikama));
 
   // excel dosyası varsa ekle
   const excelFile = document.getElementById('gerceklesenEditExcel').files[0];
