@@ -4,13 +4,17 @@ const path = require('path');
 const multer = require('multer');
 const fs = require('fs');
 const ExcelJS = require('exceljs');
+const { spawn } = require('child_process');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // --- uploads klasörü ---
-const uploadsDir = path.join(__dirname, 'public', 'uploads');
+const dataDir = process.env.DB_PATH ? path.dirname(process.env.DB_PATH) : __dirname;
+const uploadsDir = path.join(dataDir, 'uploads');
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+const pubDir = path.join(__dirname, 'public', 'uploads');
+if (!fs.existsSync(pubDir)) fs.mkdirSync(pubDir, { recursive: true });
 
 // --- multer (görsel yükleme) ---
 const storage = multer.diskStorage({
@@ -143,9 +147,33 @@ try { db.exec('ALTER TABLE gerceklesen ADD COLUMN satis_toplam REAL DEFAULT 0');
 try { db.exec('ALTER TABLE gerceklesen ADD COLUMN termin TEXT DEFAULT \'\''); } catch (e) { /* zaten var */ }
 try { db.exec('ALTER TABLE gerceklesen ADD COLUMN excel_dosya TEXT DEFAULT \'\''); } catch (e) { /* zaten var */ }
 
+// --- ödeme planı tablosu ---
+db.exec(`
+  CREATE TABLE IF NOT EXISTS odemeler (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    musteri_adi TEXT NOT NULL,
+    firma_adi TEXT DEFAULT '',
+    odeme_turu TEXT NOT NULL DEFAULT 'Havale/EFT',
+    tutar REAL NOT NULL,
+    para_birimi TEXT DEFAULT 'TL',
+    vade_tarihi TEXT NOT NULL,
+    aciklama TEXT DEFAULT '',
+    durum TEXT DEFAULT 'Bekliyor',
+    cek_no TEXT DEFAULT '',
+    banka TEXT DEFAULT '',
+    cek_sahibi TEXT DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+  )
+`);
+// migration: odemeler tablosu yeni sütunlar
+try { db.exec('ALTER TABLE odemeler ADD COLUMN cek_no TEXT DEFAULT \'\''); } catch (e) { /* zaten var */ }
+try { db.exec('ALTER TABLE odemeler ADD COLUMN banka TEXT DEFAULT \'\''); } catch (e) { /* zaten var */ }
+try { db.exec('ALTER TABLE odemeler ADD COLUMN cek_sahibi TEXT DEFAULT \'\''); } catch (e) { /* zaten var */ }
+
 // middleware
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
+app.use('/uploads', express.static(uploadsDir));
 
 // --- API ---
 
@@ -214,11 +242,11 @@ app.put('/api/fiyatlar/:id', cpUpload, (req, res) => {
   // görsel
   let gorselYolu;
   if (gorsel_sil === '1') {
-    if (eski.gorsel) { const dosya = path.join(__dirname, 'public', eski.gorsel); if (fs.existsSync(dosya)) fs.unlinkSync(dosya); }
+    if (eski.gorsel) { const dosya = path.join(uploadsDir, path.basename(eski.gorsel||'')); if (fs.existsSync(dosya)) fs.unlinkSync(dosya); }
     if (req.files && req.files.gorsel) fs.unlinkSync(req.files.gorsel[0].path);
     gorselYolu = '';
   } else if (req.files && req.files.gorsel) {
-    if (eski.gorsel) { const dosya = path.join(__dirname, 'public', eski.gorsel); if (fs.existsSync(dosya)) fs.unlinkSync(dosya); }
+    if (eski.gorsel) { const dosya = path.join(uploadsDir, path.basename(eski.gorsel||'')); if (fs.existsSync(dosya)) fs.unlinkSync(dosya); }
     gorselYolu = 'uploads/' + req.files.gorsel[0].filename;
   } else {
     gorselYolu = eski.gorsel || '';
@@ -256,7 +284,7 @@ app.put('/api/fiyatlar/:id', cpUpload, (req, res) => {
 app.delete('/api/fiyatlar/:id', (req, res) => {
   const row = db.prepare('SELECT gorsel FROM fiyatlar WHERE id = ?').get(req.params.id);
   if (row && row.gorsel) {
-    const dosya = path.join(__dirname, 'public', row.gorsel);
+    const dosya = path.join(uploadsDir, path.basename(row.gorsel||''));
     if (fs.existsSync(dosya)) fs.unlinkSync(dosya);
   }
   db.prepare('DELETE FROM fiyatlar WHERE id = ?').run(req.params.id);
@@ -538,17 +566,22 @@ app.post('/api/gerceklesen/excel', excelUpload.single('excel'), async (req, res)
 
 // --- SİPARİŞ API ---
 
-// tüm siparişleri listele
-app.get('/api/siparisler', (req, res) => {
+app.get('/api/siparisler', async (req, res) => {
   const rows = db.prepare('SELECT * FROM siparisler ORDER BY created_at DESC').all();
+  if (req.query.bant === '1') {
+    const bd = path.join(uploadsDir, 'bant.xlsx'); if (fs.existsSync(bd)) { try {
+      const wb = new ExcelJS.Workbook(); await wb.xlsx.readFile(bd); const ws = wb.worksheets[0]; if (ws) {
+      const mt = new Map(); ws.eachRow((row, rn) => { if (rn === 1) return; const dc = row.getCell(1).value; if (!dc) return;
+        let rd; if (dc instanceof Date) rd = dc; else rd = new Date(dc); if (isNaN(rd.getTime())) return; const rts = rd.getTime();
+        row.eachCell((cell, cn) => { if (cn === 1) return; const m = String(cell.value||'').match(/[A-Z]\d{3,4}[A-Z]\d{1,3}/g);
+          if (m) m.forEach(c => { if (!mt.has(c) || rts < mt.get(c)) mt.set(c, rts); }); });
+      });
+      rows.forEach(r => { r._bantSira = null; const u = (r.urun_aciklamasi||'').toUpperCase(); let ek = Infinity;
+        mt.forEach((ts, c) => { if (u.includes(c) && ts < ek) ek = ts; }); if (ek < Infinity) r._bantSira = ek; });
+      rows.sort((a, b) => (a._bantSira===null?1:b._bantSira===null?-1:a._bantSira-b._bantSira));
+    }} catch(e) {} }
+  }
   res.json(rows);
-});
-
-// tek sipariş getir
-app.get('/api/siparisler/:id', (req, res) => {
-  const row = db.prepare('SELECT * FROM siparisler WHERE id = ?').get(req.params.id);
-  if (!row) return res.status(404).json({ hata: 'Sipariş bulunamadı' });
-  res.json(row);
 });
 
 // fiyat kaydını siparişe aktar (fiyattan sil, siparişe ekle)
@@ -582,7 +615,69 @@ app.post('/api/siparisler', (req, res) => {
   res.status(201).json({ id: info.lastInsertRowid, mesaj: 'Siparişe aktarıldı' });
 });
 
-// sipariş güncelle (durum, not vb.)
+// --- BANT PROGRAMI ---
+app.get('/api/siparisler/bant-excel', async (req, res) => {
+  const bd = path.join(uploadsDir, 'bant.xlsx'); if (fs.existsSync(bd)) return res.sendFile(bd);
+  const rows = db.prepare('SELECT * FROM siparisler ORDER BY siparis_tarihi DESC').all();
+  const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Bant');
+  ws.columns=[{header:'Sip.No',key:'id',width:8},{header:'Müşteri',key:'musteri',width:20},{header:'Firma',key:'firma',width:14},{header:'Model',key:'model',width:16},{header:'Renk',key:'renk',width:16},{header:'Adet',key:'adet',width:8},{header:'Birim Fiyat',key:'fiyat',width:12},{header:'Toplam',key:'toplam',width:14},{header:'Termin',key:'termin',width:12},{header:'Durum',key:'durum',width:14},{header:'Not',key:'not',width:20}];
+  ws.getRow(1).eachCell(c=>{c.font={bold:true,size:11,color:{argb:'FFFFFFFF'}};c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF1E40AF'}};c.alignment={horizontal:'center',vertical:'middle'};c.border={top:{style:'thin'},bottom:{style:'thin'},left:{style:'thin'},right:{style:'thin'}};});ws.getRow(1).height=22;
+  const bg=new Date().toISOString().split('T')[0];let rn=2,brd={top:{style:'thin',color:{argb:'FFE2E8F0'}},bottom:{style:'thin',color:{argb:'FFE2E8F0'}},left:{style:'thin',color:{argb:'FFE2E8F0'}},right:{style:'thin',color:{argb:'FFE2E8F0'}}};
+  rows.forEach(sip=>{const rd=[];try{const d=JSON.parse(sip.renk_detay||'[]');if(Array.isArray(d))rd.push(...d);}catch(e){}if(rd.length>0){rd.forEach((x,i)=>{const ad=parseInt(x.adet)||0;ws.addRow({id:i===0?sip.id:'',musteri:i===0?sip.musteri_adi:'',firma:i===0?sip.firma_adi:'',model:i===0?sip.urun_aciklamasi:'',renk:x.renk||'',adet:ad,fiyat:i===0?sip.fiyat+' '+sip.para_birimi:'',toplam:(sip.fiyat*ad).toFixed(2)+' '+sip.para_birimi,termin:i===0?(sip.termin||''):'',durum:i===0?sip.durum:'',not:i===0?(sip.notlar||''):''});if(sip.termin&&sip.termin<bg)ws.getRow(rn).eachCell(c=>{c.font={color:{argb:'FFDC2626'}};});rn++;});}else{ws.addRow({id:sip.id,musteri:sip.musteri_adi,firma:sip.firma_adi,model:sip.urun_aciklamasi,renk:sip.renk||'-',adet:sip.miktar,fiyat:sip.fiyat+' '+sip.para_birimi,toplam:(sip.fiyat*sip.miktar).toFixed(2)+' '+sip.para_birimi,termin:sip.termin||'',durum:sip.durum,not:sip.notlar||''});if(sip.termin&&sip.termin<bg)ws.getRow(rn).eachCell(c=>{c.font={color:{argb:'FFDC2626'}};});rn++;}});
+  for(let r=2;r<rn;r++){ws.getRow(r).eachCell(c=>{c.border=brd;c.alignment={vertical:'middle'};});}
+  res.setHeader('Content-Type','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');res.setHeader('Content-Disposition','attachment; filename="Bant_Plani.xlsx"');await wb.xlsx.write(res);res.end();
+});
+app.post('/api/siparisler/bant-excel',(req,res)=>{excelUpload.single('excel')(req,res,(err)=>{if(err)return res.status(400).json({hata:err.message||'Dosya yüklenemedi'});if(!req.file)return res.status(400).json({hata:'Excel seçilmedi.'});const h=path.join(uploadsDir,'bant.xlsx');if(fs.existsSync(h))fs.unlinkSync(h);fs.renameSync(req.file.path,h);res.json({mesaj:'Yüklendi!'});});});
+app.delete('/api/siparisler/bant-excel',(req,res)=>{const h=path.join(uploadsDir,'bant.xlsx');if(fs.existsSync(h))fs.unlinkSync(h);res.json({mesaj:'Silindi'});});
+const srd=()=>path.join(uploadsDir,'bant_secenek_renk.json');
+app.get('/api/siparisler/bant-secenek-renk',(req,res)=>{try{res.json(JSON.parse(fs.readFileSync(srd(),'utf8')));}catch(e){res.json({});}});
+app.post('/api/siparisler/bant-secenek-renk',(req,res)=>{const{key,renk}=req.body;if(!key)return res.status(400).json({hata:'key zorunlu'});let d={};try{d=JSON.parse(fs.readFileSync(srd(),'utf8'));}catch(e){}d[key]=renk||'#dbeafe';fs.writeFileSync(srd(),JSON.stringify(d));res.json({mesaj:'ok'});});
+const ad=()=>path.join(uploadsDir,'bant_atama.json');
+const ao=()=>{try{return JSON.parse(fs.readFileSync(ad(),'utf8'));}catch(e){return{};}};
+const ay=(d)=>fs.writeFileSync(ad(),JSON.stringify(d));
+app.get('/api/siparisler/bant-atama',(req,res)=>{res.json(ao());});
+app.post('/api/siparisler/bant-atama',(req,res)=>{
+  const{key,siparis_id,urun,renk,adet,termin,hucreRenk,sure}=req.body;if(!key)return res.status(400).json({hata:'key zorunlu'});
+  const atamalar=ao();const[sr,col]=key.split('-').map(Number);const sa=isNaN(parseInt(sure))?1:parseInt(sure);
+  if(siparis_id||hucreRenk){const es=(atamalar[key]&&atamalar[key].sure)?atamalar[key].sure:0;const esf=es>0?Math.max(0,sa-es):sa;
+    if(esf>0&&!isNaN(sr)&&!isNaN(col)){Object.entries(atamalar).filter(([k])=>{const p=k.split('-');return parseInt(p[1])===col&&parseInt(p[0])>sr;}).sort((a,b)=>parseInt(b[0].split('-')[0])-parseInt(a[0].split('-')[0])).forEach(([ok,ov])=>{const nr=parseInt(ok.split('-')[0])+esf;atamalar[nr+'-'+col]=ov;if(ok!==nr+'-'+col)delete atamalar[ok];});}
+    atamalar[key]={siparis_id:siparis_id||0,urun:urun||'',renk:renk||'',adet:adet||0,termin:termin||'',hucreRenk:hucreRenk||'',sure:sa};}else{delete atamalar[key];}
+  ay(atamalar);res.json({mesaj:'Atama kaydedildi'});
+});
+app.post('/api/siparisler/bant-satir-ekle',(req,res)=>{
+  const{satir,adet,kolon}=req.body;const s=parseInt(satir),a=parseInt(adet)||1,k=parseInt(kolon);
+  if(!s||s<1||a<1||!k)return res.status(400).json({hata:'Geçersiz'});
+  const atamalar=ao(),yeni={};Object.entries(atamalar).forEach(([key,val])=>{const[r,c]=key.split('-').map(Number);if(r>=s&&c===k)yeni[(r+a)+'-'+c]=val;else yeni[key]=val;});ay(yeni);res.json({mesaj:a+' satır eklendi'});
+});
+app.delete('/api/siparisler/bant-satir-sil',(req,res)=>{
+  const{satir,adet,kolon}=req.body;const s=parseInt(satir),a=parseInt(adet)||1,k=parseInt(kolon);
+  if(!s||s<1||a<1||!k)return res.status(400).json({hata:'Geçersiz'});
+  const atamalar=ao(),yeni={};Object.entries(atamalar).forEach(([key,val])=>{const[r,c]=key.split('-').map(Number);if(c===k){if(r>=s&&r<s+a)return;if(r>=s+a)yeni[(r-a)+'-'+c]=val;else yeni[key]=val;}else yeni[key]=val;});ay(yeni);res.json({mesaj:a+' satır silindi'});
+});
+app.get('/api/siparisler/bant-json',async(req,res)=>{
+  const bd=path.join(uploadsDir,'bant.xlsx');if(!fs.existsSync(bd))return res.json({hata:'Bant Excel\'i bulunamadı.'});
+  try{const wb=new ExcelJS.Workbook();await wb.xlsx.readFile(bd);const ws=wb.worksheets[0];if(!ws)return res.json({hata:'Sayfa bulunamadı'});
+    const sl=db.prepare('SELECT id,urun_aciklamasi FROM siparisler').all();const mm=new Map();
+    sl.forEach(s=>{const c=(s.urun_aciklamasi||'').toUpperCase().match(/[A-Z]\d{3,4}[A-Z]\d{1,3}/g);if(c)c.forEach(x=>mm.set(x,s.id));});
+    const bl=[],sr=[],mc=ws.columnCount||23;ws.eachRow((row,rn)=>{const v=[];for(let c=1;c<=mc;c++){const cell=row.getCell(c);let val=cell.value;if(val instanceof Date)val=val.toISOString().split('T')[0];else if(val&&typeof val==='object'&&val.richText)val=val.richText.map(t=>t.text).join('');v.push(String(val||''));}if(rn===1)bl.push(...v);else sr.push(v);});
+    const bs=new Date('2026-06-01').getTime();const fl=[];sr.forEach(s=>{const ts=s[0];if(!ts)return;const d=new Date(ts);if(isNaN(d.getTime())||d.getTime()<bs)return;fl.push(s);});
+    const cc=bl.length;const bosS=[],tarS=[];const dr=/^\d{4}-\d{2}-\d{2}/;
+    for(let c=0;c<cc;c++){let bos=true,tc=0;for(let r=0;r<fl.length;r++){const v=fl[r][c];if(v&&v.trim())bos=false;if(dr.test(v))tc++;}if(bos)bosS.push(c+1);if(tc>fl.length*0.7)tarS.push(c+1);}
+    const ks=new Set([1,...tarS]);const tm=fl.map(s=>s.map((v,i)=>ks.has(i+1)?v:''));
+    res.json({basliklar:bl,satirlar:tm,stiller:[],bosSutunlar:bosS,tarihSutunlar:tarS,modelSiparisMap:Object.fromEntries(mm),atamalar:ao()});}catch(e){res.status(500).json({hata:'Excel okunamadı: '+e.message});}
+});
+app.get('/api/siparisler/:id/excel',async(req,res)=>{
+  const row=db.prepare('SELECT * FROM siparisler WHERE id = ?').get(req.params.id);if(!row)return res.status(404).json({hata:'Bulunamadı'});
+  if(row.excel_dosya){const d=path.join(uploadsDir,path.basename(row.excel_dosya||''));if(fs.existsSync(d))return res.sendFile(d);}
+  const wb=new ExcelJS.Workbook();const ws=wb.addWorksheet('Maliyet');ws.columns=[{key:'A',width:22},{key:'B',width:18}];
+  ws.getCell('A1').value='Müşteri';ws.getCell('B1').value=row.musteri_adi;ws.getCell('A2').value='Model';ws.getCell('B2').value=row.urun_aciklamasi;
+  ws.getCell('A3').value='Fiyat';ws.getCell('B3').value=row.fiyat+' '+(row.para_birimi||'TL');ws.getCell('A4').value='Adet';ws.getCell('B4').value=row.miktar;
+  ws.getCell('A5').value='Toplam';ws.getCell('B5').value=(row.fiyat*row.miktar)+' '+(row.para_birimi||'TL');
+  res.setHeader('Content-Type','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');res.setHeader('Content-Disposition','attachment; filename="maliyet_'+row.id+'.xlsx"');await wb.xlsx.write(res);res.end();
+});
+app.get('/api/siparisler/:id',(req,res)=>{const row=db.prepare('SELECT * FROM siparisler WHERE id = ?').get(req.params.id);if(!row)return res.status(404).json({hata:'Bulunamadı'});res.json(row);});
+
+// sipariş güncelle
 app.put('/api/siparisler/:id', upload.single('gorsel'), (req, res) => {
   const { musteri_adi, firma_adi, urun_aciklamasi, fiyat, para_birimi, miktar, tarih, notlar, durum, termin, renk, renk_detay } = req.body;
 
@@ -628,7 +723,7 @@ app.put('/api/siparisler/:id', upload.single('gorsel'), (req, res) => {
 app.delete('/api/siparisler/:id', (req, res) => {
   const row = db.prepare('SELECT gorsel FROM siparisler WHERE id = ?').get(req.params.id);
   if (row && row.gorsel) {
-    const dosya = path.join(__dirname, 'public', row.gorsel);
+    const dosya = path.join(uploadsDir, path.basename(row.gorsel||''));
     if (fs.existsSync(dosya)) fs.unlinkSync(dosya);
   }
   db.prepare('DELETE FROM siparisler WHERE id = ?').run(req.params.id);
@@ -741,6 +836,172 @@ app.put('/api/gerceklesen/:id', excelUpload.single('excel_dosya'), (req, res) =>
 app.delete('/api/gerceklesen/:id', (req, res) => {
   db.prepare('DELETE FROM gerceklesen WHERE id = ?').run(req.params.id);
   res.json({ mesaj: 'Silindi' });
+});
+
+// --- ÖDEME PLANI API ---
+
+// tüm ödemeleri listele (filtrelerle)
+app.get('/api/odemeler', (req, res) => {
+  const { durum, vade_baslangic, vade_bitis, odeme_turu } = req.query;
+  let sql = 'SELECT * FROM odemeler WHERE 1=1';
+  const params = [];
+
+  if (durum) { sql += ' AND durum = ?'; params.push(durum); }
+  if (odeme_turu) { sql += ' AND odeme_turu = ?'; params.push(odeme_turu); }
+  if (vade_baslangic) { sql += ' AND vade_tarihi >= ?'; params.push(vade_baslangic); }
+  if (vade_bitis) { sql += ' AND vade_tarihi <= ?'; params.push(vade_bitis); }
+
+  sql += ' ORDER BY vade_tarihi ASC';
+  const rows = db.prepare(sql).all(...params);
+  res.json(rows);
+});
+
+// haftalık gruplandırılmış ödeme planı
+app.get('/api/odemeler/haftalik', (req, res) => {
+  const bugun = new Date();
+  const bugunStr = bugun.toISOString().split('T')[0];
+
+  // bugünden itibaren 35 hafta hesapla
+  const haftalar = [];
+  for (let i = 0; i < 35; i++) {
+    const baslangic = new Date(bugun);
+    baslangic.setDate(bugun.getDate() - bugun.getDay() + 1 + (i * 7)); // pazartesi
+    const bitis = new Date(baslangic);
+    bitis.setDate(baslangic.getDate() + 6); // pazar
+
+    const bStr = baslangic.toISOString().split('T')[0];
+    const btStr = bitis.toISOString().split('T')[0];
+
+    haftalar.push({ baslangic: bStr, bitis: btStr, odemeler: [], toplam_tutar: 0 });
+  }
+
+  // bekleyen tüm ödemeleri getir
+  const rows = db.prepare(
+    "SELECT * FROM odemeler WHERE durum = 'Bekliyor' ORDER BY vade_tarihi ASC"
+  ).all();
+
+  const gecikmis = [];
+
+  rows.forEach(row => {
+    if (row.vade_tarihi < bugunStr) {
+      gecikmis.push(row);
+      return;
+    }
+
+    for (const h of haftalar) {
+      if (row.vade_tarihi >= h.baslangic && row.vade_tarihi <= h.bitis) {
+        h.odemeler.push(row);
+        h.toplam_tutar += row.tutar;
+        break;
+      }
+    }
+  });
+
+  // gelecek toplam (bugünden sonraki tüm bekleyenler)
+  const gelecek_toplam = rows
+    .filter(r => r.vade_tarihi >= bugunStr)
+    .reduce((sum, r) => sum + r.tutar, 0);
+
+  res.json({
+    haftalar,
+    gecikmis,
+    gecikmis_toplam: gecikmis.reduce((sum, r) => sum + r.tutar, 0),
+    gelecek_toplam,
+    bugun: bugunStr
+  });
+});
+
+// tek ödeme getir
+app.get('/api/odemeler/:id', (req, res) => {
+  const row = db.prepare('SELECT * FROM odemeler WHERE id = ?').get(req.params.id);
+  if (!row) return res.status(404).json({ hata: 'Kayıt bulunamadı' });
+  res.json(row);
+});
+
+// yeni ödeme ekle
+app.post('/api/odemeler', (req, res) => {
+  const { musteri_adi, firma_adi, odeme_turu, tutar, para_birimi, vade_tarihi, aciklama, cek_no, banka, cek_sahibi } = req.body;
+
+  if (!tutar || !vade_tarihi) {
+    return res.status(400).json({ hata: 'Tutar ve vade tarihi zorunludur' });
+  }
+
+  const stmt = db.prepare(`
+    INSERT INTO odemeler (musteri_adi, firma_adi, odeme_turu, tutar, para_birimi, vade_tarihi, aciklama, cek_no, banka, cek_sahibi)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  const info = stmt.run(
+    '',
+    firma_adi || '',
+    odeme_turu || 'Havale/EFT',
+    tutar,
+    para_birimi || 'TL',
+    vade_tarihi,
+    aciklama || '',
+    cek_no || '',
+    banka || '',
+    cek_sahibi || ''
+  );
+
+  res.status(201).json({ id: info.lastInsertRowid, mesaj: 'Ödeme kaydedildi' });
+});
+
+// ödeme güncelle
+app.put('/api/odemeler/:id', (req, res) => {
+  const { musteri_adi, firma_adi, odeme_turu, tutar, para_birimi, vade_tarihi, aciklama, durum, cek_no, banka, cek_sahibi } = req.body;
+
+  if (!tutar || !vade_tarihi) {
+    return res.status(400).json({ hata: 'Tutar ve vade tarihi zorunludur' });
+  }
+
+  const eski = db.prepare('SELECT * FROM odemeler WHERE id = ?').get(req.params.id);
+  if (!eski) return res.status(404).json({ hata: 'Kayıt bulunamadı' });
+
+  db.prepare(`
+    UPDATE odemeler
+    SET musteri_adi='', firma_adi=?, odeme_turu=?, tutar=?, para_birimi=?, vade_tarihi=?, aciklama=?, durum=?, cek_no=?, banka=?, cek_sahibi=?
+    WHERE id=?
+  `).run(
+    firma_adi || '',
+    odeme_turu || 'Havale/EFT',
+    tutar,
+    para_birimi || 'TL',
+    vade_tarihi,
+    aciklama || '',
+    durum || 'Bekliyor',
+    cek_no || '',
+    banka || '',
+    cek_sahibi || '',
+    req.params.id
+  );
+
+  res.json({ mesaj: 'Ödeme güncellendi' });
+});
+
+// ödeme sil
+app.delete('/api/odemeler/:id', (req, res) => {
+  db.prepare('DELETE FROM odemeler WHERE id = ?').run(req.params.id);
+  res.json({ mesaj: 'Silindi' });
+});
+
+// ödeme durumu güncelle (hızlı)
+app.patch('/api/odemeler/:id/durum', (req, res) => {
+  const { durum } = req.body;
+  if (!durum) return res.status(400).json({ hata: 'durum zorunludur' });
+  db.prepare('UPDATE odemeler SET durum=? WHERE id=?').run(durum, req.params.id);
+  res.json({ mesaj: 'Durum güncellendi' });
+});
+
+// --- yedekleme ---
+app.get('/api/yedekle', (req, res) => {
+  const tarih = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
+  res.setHeader('Content-Type', 'application/gzip');
+  res.setHeader('Content-Disposition', `attachment; filename="fiyat-takip-yedek-${tarih}.tar.gz"`);
+  const tar = spawn('tar', ['-czf', '-', '-C', '/app/data', '.']);
+  tar.stdout.pipe(res);
+  tar.stderr.on('data', () => {});
+  tar.on('error', () => res.status(500).json({ hata: 'Yedekleme başarısız' }));
 });
 
 // --- başlat ---

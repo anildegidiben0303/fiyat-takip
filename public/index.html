@@ -340,6 +340,20 @@
     letter-spacing: 0.5px;
   }
 
+  /* bant grid */
+  #bantView{display:none}#bantView.active{display:block}
+  body.bant-full .main{max-width:none;padding:0 8px}
+  body.bant-full .topbar,body.bant-full .tab-bar{display:none}
+  .bant-grid-wrap{overflow:auto;max-height:80vh;border:1px solid #e2e8f0;border-radius:8px}
+  .bant-grid{border-collapse:collapse;font-size:11px;white-space:nowrap}
+  .bant-grid th{position:sticky;top:0;z-index:2;background:#1e293b;color:#fff;padding:6px 8px;font-size:10px;text-align:center;border:1px solid #334155;min-width:220px}
+  .bant-grid th:first-child{position:sticky;left:0;z-index:3;min-width:50px;width:50px;font-size:9px}
+  .bant-grid td{padding:4px 6px;border:1px solid #e2e8f0;text-align:center;vertical-align:middle;max-width:240px;overflow:hidden;text-overflow:ellipsis}
+  .bant-grid td:first-child{position:sticky;left:0;background:#f1f5f9;font-weight:700;font-size:9px;z-index:1;text-align:center;min-width:50px;width:50px}
+  .bant-grid tr:hover td{background:#fefce8}.bant-grid tr:hover td:first-child{background:#e2e8f0}
+  .bant-grid .has-order{background:#dcfce7;font-weight:600;cursor:pointer;border:2px solid #059669}
+  .bant-grid .has-order:hover{background:#bbf7d0}.bant-grid .empty-cell{color:#cbd5e1}
+
   @media (max-width: 768px) {
     .form-grid { grid-template-columns: 1fr; }
     table { font-size: 12px; }
@@ -347,13 +361,61 @@
     .tab-btn { padding: 12px 16px; font-size: 14px; }
     .summary-cards { flex-direction: column; }
   }
+  #bantView{display:none}#bantView.active{display:block}
+  body.bant-full .main{max-width:none;padding:0 8px}body.bant-full .topbar,body.bant-full .tab-bar{display:none}
+  .bant-grid-wrap{overflow:auto;max-height:80vh;border:1px solid #e2e8f0;border-radius:8px}
+  .bant-grid{border-collapse:collapse;font-size:11px;white-space:nowrap}
+  .bant-grid th{position:sticky;top:0;z-index:2;background:#1e293b;color:#fff;padding:6px 8px;font-size:10px;text-align:center;border:1px solid #334155;min-width:220px}
+  .bant-grid th:first-child{position:sticky;left:0;z-index:3;min-width:50px;width:50px;font-size:9px}
+  .bant-grid td{padding:4px 6px;border:1px solid #e2e8f0;text-align:center;vertical-align:middle;max-width:240px;overflow:hidden;text-overflow:ellipsis}
+  .bant-grid td:first-child{position:sticky;left:0;background:#f1f5f9;font-weight:700;font-size:9px;z-index:1;text-align:center;min-width:50px;width:50px}
+  .bant-grid tr:hover td{background:#fefce8}.bant-grid tr:hover td:first-child{background:#e2e8f0}
+  .bant-grid .has-order{background:#dcfce7;font-weight:600;cursor:pointer;border:2px solid #059669}.bant-grid .has-order:hover{background:#bbf7d0}
+  .bant-grid .empty-cell{color:#cbd5e1}
+
+  /* --- ödeme planı --- */
+  .week-cards { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+  .week-card {
+    flex: 1; min-width: 180px;
+    background: #f8fafc; border-radius: 10px; padding: 14px;
+    border: 2px solid #e2e8f0; cursor: pointer; transition: all 0.15s;
+  }
+  .week-card:hover { border-color: #3b82f6; background: #fff; }
+  .week-card.current { border-color: #3b82f6; background: #eff6ff; }
+  .week-card.past { opacity: 0.6; }
+  .week-card .wc-label { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+  .week-card .wc-date { font-size: 12px; color: #475569; margin-bottom: 6px; }
+  .week-card .wc-amount { font-size: 20px; font-weight: 800; color: #1e293b; }
+  .week-card .wc-count { font-size: 11px; color: #64748b; }
+  .week-card .wc-amount.overdue { color: #ef4444; }
+  .week-card .wc-amount.thisweek { color: #f59e0b; }
+
+  .odeme-type-badge {
+    display: inline-block; padding: 2px 10px; border-radius: 10px;
+    font-size: 11px; font-weight: 700; white-space: nowrap;
+  }
+  .type-nakit { background: #d1fae5; color: #065f46; }
+  .type-cek { background: #dbeafe; color: #1e40af; }
+  .type-havale { background: #fef3c7; color: #92400e; }
+  .type-kredi { background: #ede9fe; color: #5b21b6; }
+  .type-senet { background: #fee2e2; color: #991b1b; }
+  .type-fatura { background: #fce7f3; color: #9d174d; }
+
+  .cek-fields { display: none; }
+  .cek-fields.show { display: contents; }
+
+  .week-detail { display: none; margin-top: 12px; }
+  .week-detail.show { display: block; }
 </style>
 </head>
 <body>
 
 <div class="topbar">
-  <h1>🧵 FİYAT TAKİP SİSTEMİ</h1>
-  <span class="ip-info" id="ipInfo">Yükleniyor...</span>
+  <h1>🧵 ESA MODA</h1>
+  <span class="ip-info" id="ipInfo">
+    <button class="btn-outline btn-sm" onclick="window.open('/api/yedekle','_blank')" title="Tüm verileri yedekle" style="color:#fff;border-color:#fff;margin-right:8px;">💾 Yedekle</button>
+    Yükleniyor...
+  </span>
 </div>
 
 <!-- firma listesi (datalist) -->
@@ -368,6 +430,7 @@
   <button class="tab-btn active" data-tab="fiyatlar">📋 Fiyatlar <span class="badge" id="fiyatCount">0</span></button>
   <button class="tab-btn" data-tab="siparisler">📦 Siparişler <span class="badge" id="siparisCount">0</span></button>
   <button class="tab-btn" data-tab="gerceklesen">💰 Gerçekleşen <span class="badge" id="gerceklesenCount">0</span></button>
+  <button class="tab-btn" data-tab="odemeler">💵 Ödemeler <span class="badge" id="odemeCount">0</span></button>
 </div>
 
 <div class="main">
@@ -476,6 +539,7 @@
       <div class="search-bar">
         <input type="text" id="siparisSearchInput" placeholder="🔍 Müşteri, firma veya ürün ara...">
         <button class="btn-primary btn-sm" id="btnSiparisRefresh">🔄 Yenile</button>
+        <button class="btn-outline btn-sm" id="btnBantSirala" onclick="toggleBantView()">📋 Bant Görünümü</button>
       </div>
       <div style="overflow-x:auto;">
         <table id="siparisTable">
@@ -499,6 +563,24 @@
           <tbody></tbody>
         </table>
         <div class="empty" id="siparisEmptyMsg">Henüz sipariş yok.</div>
+      </div>
+    </div>
+    <div id="bantView">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:12px;flex-wrap:wrap;">
+          <h2 style="margin:0;border:none;padding:0;">📋 Bant Programı</h2>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <input type="text" id="bantArama" placeholder="🔍 Model ara..." style="width:180px;padding:6px 10px;font-size:12px;border:1px solid #cbd5e1;border-radius:6px;" oninput="bantAra(this.value)">
+            <span id="bantAramaSonuc" style="font-size:11px;color:#64748b;"></span>
+            <span id="bantInfo" style="font-size:12px;color:#64748b;"></span>
+            <input type="file" id="bantExcelUpload" accept=".xlsx,.xls" style="display:none" onchange="bantExcelYukle(this.files[0])">
+            <button class="btn-purple btn-sm" onclick="document.getElementById('bantExcelUpload').click()">📤 Yükle</button>
+            <button class="btn-outline btn-sm" onclick="bantExcelIndir()">📥 İndir</button>
+            <button class="btn-outline btn-sm" onclick="toggleBantView()">📋 Listeye Dön</button>
+          </div>
+        </div>
+        <div class="bant-grid-wrap"><table class="bant-grid" id="bantGridTable"><thead></thead><tbody></tbody></table></div>
+        <div class="empty" id="bantEmptyMsg" style="display:none;">Bant Excel'i yüklenmemiş. Lütfen önce 📤 Yükle butonuyla bant planını yükleyin.</div>
       </div>
     </div>
   </div>
@@ -563,6 +645,64 @@
           <tbody></tbody>
         </table>
         <div class="empty" id="gerceklesenEmptyMsg">Henüz gerçekleşen kaydı yok.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== ÖDEMELER SEKME ==================== -->
+  <div class="tab-content" id="tabOdemeler">
+
+    <!-- özet kartları -->
+    <div class="summary-cards" id="odemeOzet"></div>
+
+    <!-- haftalık görünüm -->
+    <div class="card" id="haftalikKart">
+      <h2>📅 Haftalık Ödeme Planı</h2>
+      <div class="week-cards" id="weekCards"></div>
+      <div class="empty" id="haftalikEmpty" style="display:none;">Henüz bekleyen ödeme yok.</div>
+    </div>
+
+    <!-- ödeme listesi -->
+    <div class="card">
+      <h2>💵 Ödeme Listesi</h2>
+      <div class="search-bar">
+        <input type="text" id="odemeSearchInput" placeholder="🔍 Firma, açıklama veya çek no ara...">
+        <select id="odemeDurumFilter" style="width:140px;">
+          <option value="">Tüm Durumlar</option>
+          <option value="Bekliyor">Bekliyor</option>
+          <option value="Tahsil Edildi">Tahsil Edildi</option>
+          <option value="Gecikti">Gecikti</option>
+          <option value="İptal">İptal</option>
+        </select>
+        <select id="odemeTurFilter" style="width:140px;">
+          <option value="">Tüm Türler</option>
+          <option value="Nakit">Nakit</option>
+          <option value="Çek">Çek</option>
+          <option value="Havale/EFT">Havale/EFT</option>
+          <option value="Kredi Kartı">Kredi Kartı</option>
+          <option value="Senet">Senet</option>
+          <option value="Fatura">Fatura</option>
+        </select>
+        <button class="btn-primary btn-sm" id="btnOdemeEkle">+ Yeni Ödeme</button>
+        <button class="btn-outline btn-sm" id="btnOdemeRefresh">🔄 Yenile</button>
+      </div>
+      <div style="overflow-x:auto;">
+        <table id="odemeTable">
+          <thead>
+            <tr>
+              <th>Firma / Cari</th>
+              <th>Tür</th>
+              <th>Tutar</th>
+              <th>Vade</th>
+              <th>Açıklama</th>
+              <th>Çek/Banka</th>
+              <th>Durum</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <div class="empty" id="odemeEmptyMsg">Henüz ödeme kaydı yok.</div>
       </div>
     </div>
   </div>
@@ -817,6 +957,96 @@
 
 <div class="toast" id="toast"></div>
 
+<div class="modal-overlay" id="bantSiparisModal">
+  <div class="modal" style="max-width:600px;">
+    <div class="modal-header"><h3>📋 Sipariş Seç</h3><button class="close-modal" onclick="closeBantSiparisModal()">&times;</button></div>
+    <div class="modal-body">
+      <div style="background:#f0f9ff;border:2px solid #3b82f6;border-radius:10px;padding:10px 14px;margin-bottom:12px;">
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button type="button" onclick="bantSatirEkle()" style="background:#3b82f6;color:#fff;border:none;border-radius:8px;padding:10px 18px;font-size:14px;font-weight:700;cursor:pointer;">➕ Satır Ekle</button>
+          <button type="button" onclick="bantSatirSil()" style="background:#ef4444;color:#fff;border:none;border-radius:8px;padding:10px 18px;font-size:14px;font-weight:700;cursor:pointer;">➖ Satır Sil</button>
+        </div>
+        <div style="font-size:11px;color:#64748b;margin-top:4px;">Sadece seçili sütunda çalışır</div>
+      </div>
+      <input type="text" id="bantSiparisSearch" placeholder="🔍 Model veya müşteri ara..." style="margin-bottom:10px;" oninput="filterBantSiparis()">
+      <div style="max-height:400px;overflow-y:auto;" id="bantSiparisList"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-outline" onclick="closeBantSiparisModal()">İptal</button>
+      <button class="btn-danger btn-sm" id="btnBantSecimiSil" style="display:none;" onclick="bantSecimiSil()">🗑 Seçimi Sil</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="odemeEditModal">
+  <div class="modal" style="max-width:600px;">
+    <div class="modal-header"><h3 id="odemeModalTitle">💵 Yeni Ödeme</h3><button class="close-modal" onclick="closeOdemeModal()">&times;</button></div>
+    <div class="modal-body">
+      <form id="odemeEditForm">
+        <input type="hidden" name="odemeEditId">
+        <div class="form-grid">
+          <div>
+            <label>Firma / Cari</label>
+            <input type="text" name="odemeEditFirmaAdi" list="firmaList">
+          </div>
+          <div>
+            <label>Ödeme Türü</label>
+            <select name="odemeEditTuru" id="odemeEditTuru">
+              <option value="Havale/EFT">Havale/EFT</option>
+              <option value="Nakit">Nakit</option>
+              <option value="Çek">Çek</option>
+              <option value="Kredi Kartı">Kredi Kartı</option>
+              <option value="Senet">Senet</option>
+              <option value="Fatura">Fatura</option>
+            </select>
+          </div>
+          <div>
+            <label>Tutar *</label>
+            <input type="number" name="odemeEditTutar" step="0.01" required>
+          </div>
+          <div>
+            <label>Para Birimi</label>
+            <select name="odemeEditParaBirimi">
+              <option value="TL">TL</option>
+              <option value="USD">USD ($)</option>
+              <option value="EUR">EUR (€)</option>
+            </select>
+          </div>
+          <div>
+            <label>Vade Tarihi *</label>
+            <input type="date" name="odemeEditVade" required>
+          </div>
+          <div>
+            <label>Durum</label>
+            <select name="odemeEditDurum">
+              <option value="Bekliyor">Bekliyor</option>
+              <option value="Tahsil Edildi">Tahsil Edildi</option>
+              <option value="Gecikti">Gecikti</option>
+              <option value="İptal">İptal</option>
+            </select>
+          </div>
+          <div class="full">
+            <label>Açıklama</label>
+            <input type="text" name="odemeEditAciklama" placeholder="Örn: 3. taksit, peşinat...">
+          </div>
+          <!-- çek alanları -->
+          <div class="full cek-fields" id="cekFields">
+            <div class="form-grid" style="margin-top:8px;padding-top:8px;border-top:1px solid #e2e8f0;">
+              <div><label>Çek Numarası</label><input type="text" name="odemeEditCekNo" placeholder="Çek no"></div>
+              <div><label>Banka</label><input type="text" name="odemeEditBanka" placeholder="Banka adı"></div>
+              <div><label>Çek Sahibi</label><input type="text" name="odemeEditCekSahibi" placeholder="Çeki veren"></div>
+            </div>
+          </div>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-outline" onclick="closeOdemeModal()">İptal</button>
+      <button class="btn-success" id="btnOdemeEditSave">💾 Kaydet</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ==============================
 // DOM referansları
@@ -1003,6 +1233,11 @@ function paraClass(birim) {
   return birim === 'USD' ? 'usd' : birim === 'EUR' ? 'eur' : '';
 }
 
+function formatPara(n) {
+  if (n == null || isNaN(n)) return '0,00';
+  return n.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+
 function openLightbox(src) {
   lightboxImg.src = src;
   lightbox.classList.add('show');
@@ -1032,7 +1267,7 @@ async function loadList(search = '') {
     rows.forEach(row => {
       const tr = document.createElement('tr');
       const para = paraIsareti(row.para_birimi);
-      const toplam = (row.fiyat * row.miktar).toFixed(2);
+      const toplam = formatPara(row.fiyat * row.miktar);
       const pc = paraClass(row.para_birimi);
 
       tr.innerHTML = `
@@ -1041,7 +1276,7 @@ async function loadList(search = '') {
         <td>${esc(row.musteri_adi)}</td>
         <td>${esc(row.firma_adi)}</td>
         <td>${esc(row.urun_aciklamasi)}</td>
-        <td class="price ${pc}">${para} ${row.fiyat.toFixed(2)}</td>
+        <td class="price ${pc}">${para} ${formatPara(row.fiyat)}</td>
         <td>${row.miktar}</td>
         <td class="price ${pc}">${para} ${toplam}</td>
         <td style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(row.notlar)}">${esc(row.notlar)}</td>
@@ -1094,7 +1329,7 @@ async function loadSiparisList(search = '') {
 
       const tr = document.createElement('tr');
       const para = paraIsareti(row.para_birimi);
-      const toplamStr = toplam.toFixed(2);
+      const toplamStr = formatPara(toplam);
       const pc = paraClass(row.para_birimi);
       const durumClass = 'status-' + row.durum.toLowerCase().replace('ü','u').replace('ı','i').replace('ö','o').replace('ğ','g').replace('ş','s').replace('ç','c');
 
@@ -1115,7 +1350,7 @@ async function loadSiparisList(search = '') {
         <td>${esc(row.firma_adi)}</td>
         <td>${esc(row.urun_aciklamasi)}</td>
         <td>${esc(row.renk || '') || '<span style="color:#94a3b8;">-</span>'}</td>
-        <td class="price ${pc}">${para} ${row.fiyat.toFixed(2)}</td>
+        <td class="price ${pc}">${para} ${formatPara(row.fiyat)}</td>
         <td>${row.miktar}</td>
         <td class="price ${pc}">${para} ${toplamStr}</td>
         <td>${terminHtml}</td>
@@ -1153,9 +1388,9 @@ async function loadSiparisList(search = '') {
               <td>${esc(row.firma_adi)}</td>
               <td>${esc(row.urun_aciklamasi)}</td>
               <td>${esc(d.renk)}</td>
-              <td class="price ${pc}">${para} ${row.fiyat.toFixed(2)}</td>
+              <td class="price ${pc}">${para} ${formatPara(row.fiyat)}</td>
               <td>${subAdet}</td>
-              <td class="price ${pc}">${para} ${subToplam.toFixed(2)}</td>
+              <td class="price ${pc}">${para} ${formatPara(subToplam)}</td>
               <td>${terminHtml}</td>
               <td><span class="status-badge status-hazirlaniyor" style="font-size:10px;">↳ Renk</span></td>
               <td></td>
@@ -1171,7 +1406,7 @@ async function loadSiparisList(search = '') {
     siparisOzet.innerHTML = `
       <div class="summary-card"><div class="num">${rows.length}</div><div class="lbl">Toplam Sipariş</div></div>
       <div class="summary-card"><div class="num">${toplamAdet}</div><div class="lbl">Toplam Adet</div></div>
-      <div class="summary-card"><div class="num">₺ ${toplamTutar.toFixed(2)}</div><div class="lbl">Toplam Tutar</div></div>
+      <div class="summary-card"><div class="num">₺ ${formatPara(toplamTutar)}</div><div class="lbl">Toplam Tutar</div></div>
       <div class="summary-card"><div class="num">${hazirlaniyor}</div><div class="lbl">🟡 Hazırlanıyor</div></div>
       <div class="summary-card"><div class="num">${uretimde}</div><div class="lbl">🔵 Üretimde</div></div>
       <div class="summary-card"><div class="num">${tamamlandi}</div><div class="lbl">🟢 Tamamlandı</div></div>
@@ -1498,17 +1733,17 @@ async function loadGerceklesenList(search = '') {
         <td>${esc(row.firma_adi)}</td>
         <td>${esc(row.urun_aciklamasi)}</td>
         <td>${row.termin ? '<span style="' + (row.termin < new Date().toISOString().split('T')[0] ? 'color:#ef4444;font-weight:700;' : '') + '">' + row.termin + '</span>' : '<span style="color:#94a3b8;">-</span>'}</td>
-        <td class="price ${pc}">${para} ${row.fiyat.toFixed(2)}</td>
+        <td class="price ${pc}">${para} ${formatPara(row.fiyat)}</td>
         <td>${row.miktar}</td>
         <td>${row.kesim_adedi || 0}</td>
         <td>${row.yuklenen_adet || 0}</td>
         <td>${row.ikinci_kalite || 0}</td>
-        <td class="price ${pc}">${satisToplam > 0 ? para + ' ' + satisToplam.toFixed(2) : '<span style="color:#94a3b8;">-</span>'}</td>
-        <td class="price">₺ ${(row.kumas_bedeli || 0).toFixed(2)}</td>
-        <td class="price">₺ ${(row.aksesuar_bedeli || 0).toFixed(2)}</td>
-        <td class="price">₺ ${(row.iscilik_bedeli || 0).toFixed(2)}</td>
-        <td class="price">₺ ${maliyet.toFixed(2)}</td>
-        <td class="${karClass}">${satisToplam > 0 ? (kar >= 0 ? '✅' : '❌') + ' ₺ ' + kar.toFixed(2) : '<span style="color:#94a3b8;">-</span>'}</td>
+        <td class="price ${pc}">${satisToplam > 0 ? para + ' ' + formatPara(satisToplam) : '<span style="color:#94a3b8;">-</span>'}</td>
+        <td class="price">₺ ${formatPara(row.kumas_bedeli || 0)}</td>
+        <td class="price">₺ ${formatPara(row.aksesuar_bedeli || 0)}</td>
+        <td class="price">₺ ${formatPara(row.iscilik_bedeli || 0)}</td>
+        <td class="price">₺ ${formatPara(maliyet)}</td>
+        <td class="${karClass}">${satisToplam > 0 ? (kar >= 0 ? '✅' : '❌') + ' ₺ ' + formatPara(kar) : '<span style="color:#94a3b8;">-</span>'}</td>
         <td class="${karClass}">${satisToplam > 0 ? ((kar / satisToplam) * 100).toFixed(1) + '%' : '-'}</td>
         <td style="white-space:nowrap;">
           ${row.excel_dosya ? `<a href="${esc(row.excel_dosya)}" target="_blank" class="btn-outline btn-sm" style="text-decoration:none;display:inline-block;" title="Maliyet Excel'ini Aç">📥</a>` : ''}
@@ -1522,9 +1757,9 @@ async function loadGerceklesenList(search = '') {
     const toplamKar = toplamSatis - toplamMaliyet;
     gerceklesenOzet.innerHTML = `
       <div class="summary-card"><div class="num">${rows.length}</div><div class="lbl">Toplam Gerçekleşen</div></div>
-      <div class="summary-card"><div class="num" style="color:#059669;">₺ ${toplamSatis.toFixed(2)}</div><div class="lbl">Toplam Satış</div></div>
-      <div class="summary-card"><div class="num" style="color:#dc2626;">₺ ${toplamMaliyet.toFixed(2)}</div><div class="lbl">Toplam Maliyet</div></div>
-      <div class="summary-card"><div class="num" style="color:${toplamKar >= 0 ? '#059669' : '#dc2626'};">₺ ${toplamKar.toFixed(2)}</div><div class="lbl">Net Kâr / Zarar</div></div>
+      <div class="summary-card"><div class="num" style="color:#059669;">₺ ${formatPara(toplamSatis)}</div><div class="lbl">Toplam Satış</div></div>
+      <div class="summary-card"><div class="num" style="color:#dc2626;">₺ ${formatPara(toplamMaliyet)}</div><div class="lbl">Toplam Maliyet</div></div>
+      <div class="summary-card"><div class="num" style="color:${toplamKar >= 0 ? '#059669' : '#dc2626'};">₺ ${formatPara(toplamKar)}</div><div class="lbl">Net Kâr / Zarar</div></div>
     `;
 
     // --- aylık rapor ---
@@ -1558,9 +1793,9 @@ async function loadGerceklesenList(search = '') {
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td><strong>${ayAdi} ${y}</strong></td>
-        <td class="price">₺ ${a.satis.toFixed(2)}</td>
-        <td class="price">₺ ${a.maliyet.toFixed(2)}</td>
-        <td class="price" style="${karRenk}">${kar >= 0 ? '✅' : '❌'} ₺ ${kar.toFixed(2)}</td>
+        <td class="price">₺ ${formatPara(a.satis)}</td>
+        <td class="price">₺ ${formatPara(a.maliyet)}</td>
+        <td class="price" style="${karRenk}">${kar >= 0 ? '✅' : '❌'} ₺ ${formatPara(kar)}</td>
         <td class="price" style="${karRenk}">${yuzde}</td>
         <td>${a.adet}</td>
       `;
@@ -1576,9 +1811,9 @@ async function loadGerceklesenList(search = '') {
       tr.style.fontWeight = '700';
       tr.innerHTML = `
         <td><strong>GENEL TOPLAM</strong></td>
-        <td class="price">₺ ${genelTopSatis.toFixed(2)}</td>
-        <td class="price">₺ ${genelTopMaliyet.toFixed(2)}</td>
-        <td class="price" style="${genelRenk}">₺ ${genelTopKar.toFixed(2)}</td>
+        <td class="price">₺ ${formatPara(genelTopSatis)}</td>
+        <td class="price">₺ ${formatPara(genelTopMaliyet)}</td>
+        <td class="price" style="${genelRenk}">₺ ${formatPara(genelTopKar)}</td>
         <td class="price" style="${genelRenk}">${genelYuzde}</td>
         <td>${rows.length}</td>
       `;
@@ -1719,6 +1954,420 @@ document.getElementById('btnSiparisRefresh').addEventListener('click', () => loa
 
 gerceklesenSearchInput.addEventListener('input', () => loadGerceklesenList(gerceklesenSearchInput.value));
 document.getElementById('btnGerceklesenRefresh').addEventListener('click', () => loadGerceklesenList(gerceklesenSearchInput.value));
+
+// ==============================
+// BANT GÖRÜNÜMÜ
+// ==============================
+let bantViewAktif=false;
+async function toggleBantView(){
+  bantViewAktif=!bantViewAktif;
+  const bv=document.getElementById('bantView'),sc=document.querySelector('#tabSiparisler .card'),btn=document.getElementById('btnBantSirala');
+  if(bantViewAktif){bv.classList.add('active');sc.style.display='none';btn.className='btn-success btn-sm';btn.textContent='📋 Bant (Aktif)';document.getElementById('siparisOzet').style.display='none';document.body.classList.add('bant-full');await loadBantView();}
+  else{bv.classList.remove('active');sc.style.display='';btn.className='btn-outline btn-sm';btn.textContent='📋 Bant Görünümü';document.getElementById('siparisOzet').style.display='';document.body.classList.remove('bant-full');}
+}
+async function loadBantView(sk){
+  try{
+    const d=await fetch('/api/siparisler/bant-json').then(r=>r.json());
+    if(d.hata){document.getElementById('bantEmptyMsg').style.display='block';document.getElementById('bantGridTable').parentElement.style.display='none';document.getElementById('bantInfo').textContent=d.hata;return;}
+    document.getElementById('bantEmptyMsg').style.display='none';document.getElementById('bantGridTable').parentElement.style.display='';
+    document.getElementById('bantInfo').textContent=d.satirlar.length+' satır × '+d.basliklar.length+' sütun';
+    const bosSet=new Set(d.bosSutunlar||[]),tarihSet=new Set(d.tarihSutunlar||[]);
+    document.querySelector('#bantGridTable thead').innerHTML='<tr>'+d.basliklar.map((h,ci)=>'<th>'+esc(String(h).substring(0,25))+'</th>').join('')+'</tr>';
+    const tbody=document.querySelector('#bantGridTable tbody');
+    tbody.innerHTML=d.satirlar.map((satir,ri)=>{
+      const ts=satir[0];let hf=false;if(ts){const dt=new Date(ts);hf=(dt.getDay()===0||dt.getDay()===6);}
+      return'<tr style="'+(hf?'background:#1a1a2e;height:10px;line-height:10px;':'')+'">'+satir.map((val)=>{const v=val?esc(String(val).substring(0,60)):'';return'<td>'+(v||'<span class="empty-cell">·</span>')+'</td>';}).join('')+'</tr>';
+    }).join('');
+    tbody.querySelectorAll('tr').forEach(tr=>{if(tr.style.background.includes('26,26,46')||tr.style.background==='#1a1a2e'){tr.querySelectorAll('td').forEach(td=>td.style.color='#64748b');const f=tr.querySelector('td:first-child');if(f){f.style.background='#1a1a2e';f.style.color='#64748b';}}});
+    document.querySelectorAll('#bantGridTable th, #bantGridTable td').forEach(td=>{
+      const col=td.cellIndex+1;
+      if(bosSet.has(col)){td.style.width='18px';td.style.minWidth='18px';td.style.maxWidth='18px';td.style.background='#1a1a2e';td.style.padding='0';td.innerHTML='';}
+      else if(tarihSet.has(col)&&col>1){td.style.width='60px';td.style.minWidth='60px';td.style.maxWidth='60px';td.style.fontSize='10px';td.style.padding='2px 3px';}
+    });
+    const atamalar=d.atamalar||{},spanMap={};
+    Object.entries(atamalar).forEach(([k,v])=>{if(!v.urun)return;const s=v.sure||1;if(s<=1)return;const[p0,p1]=k.split('-').map(Number);for(let i=1;i<s;i++){const nk=(p0+i)+'-'+p1;if(!atamalar[nk]||!atamalar[nk].urun)spanMap[nk]={kaynakKey:k,atama:v};}});
+    tbody.querySelectorAll('td').forEach(td=>{
+      const col=td.cellIndex+1,row=td.parentElement.rowIndex;
+      if(col===1||bosSet.has(col)||tarihSet.has(col))return;
+      const tv=td.parentElement.querySelector('td:first-child')?.textContent||'';
+      const dt=new Date(tv);if(isNaN(dt.getTime())||dt.getDay()===0||dt.getDay()===6)return;
+      const key=row+'-'+col,si=spanMap[key];
+      if(si){td.textContent=si.atama.urun||'';td.style.background=si.atama.hucreRenk||'#dbeafe';td.style.fontWeight='700';td.style.fontSize='9px';td.style.cursor='pointer';td.title=si.atama.urun+' - Tıkla değiştir';td.addEventListener('click',function(e){e.stopPropagation();openBantSiparisModal(si.kaynakKey,td);});return;}
+      if(atamalar[key]&&atamalar[key].urun){const a=atamalar[key];td.textContent=a.urun||'';td.style.background=a.hucreRenk||'#dbeafe';td.style.fontWeight='700';td.style.fontSize='9px';td.style.cursor='pointer';td.title='#'+a.siparis_id;}
+      else{td.style.cursor='pointer';td.title='Tıkla sipariş seç';}
+      td.addEventListener('click',function(e){e.stopPropagation();openBantSiparisModal(key,td);});
+    });
+    window._bantAtamalar=atamalar;window._bantSiparisList=null;
+    if(sk){setTimeout(()=>{const[r,c]=sk.split('-').map(Number);const tr=tbody.querySelectorAll('tr')[r-1];if(tr){const td=tr.querySelectorAll('td')[c-1];if(td)td.scrollIntoView({behavior:'smooth',block:'center',inline:'center'});}},150);}
+  }catch(e){document.getElementById('bantInfo').textContent='Hata: '+e.message;}
+}
+function bantExcelYukle(file){if(!file)return;const fd=new FormData();fd.append('excel',file);fetch('/api/siparisler/bant-excel',{method:'POST',body:fd}).then(r=>r.json()).then(d=>{showToast('✅ '+d.mesaj);loadBantView();}).catch(()=>showToast('❌ Hata'));document.getElementById('bantExcelUpload').value='';}
+function bantExcelIndir(){window.open('/api/siparisler/bant-excel','_blank');}
+async function openBantSiparisModal(key,td){
+  if(!window._bantSiparisList)window._bantSiparisList=await fetch('/api/siparisler').then(r=>r.json());
+  if(!window._secenekRenkler){try{window._secenekRenkler=await fetch('/api/siparisler/bant-secenek-renk').then(r=>r.json());}catch(e){window._secenekRenkler={};}}
+  window._bantSeciliKey=key;window._bantSeciliTd=td;document.getElementById('bantSiparisSearch').value='';
+  const ma=window._bantAtamalar[key];
+  document.getElementById('btnBantSecimiSil').style.display=ma?'':'none';
+  renderBantSiparisList(window._bantSiparisList);document.getElementById('bantSiparisModal').classList.add('show');
+}
+function closeBantSiparisModal(){document.getElementById('bantSiparisModal').classList.remove('show');}
+async function bantSatirEkle(){
+  const adet=parseInt(prompt('Kaç satır eklensin?'))||0;
+  if(adet<1)return;
+  const key=window._bantSeciliKey,parts=key.split('-'),row=parseInt(parts[0]),kolon=parseInt(parts[1]);
+  const res=await fetch('/api/siparisler/bant-satir-ekle',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({satir:row,adet,kolon})});
+  if(res.ok){showToast('✅ '+adet+' satır eklendi');await loadBantView(key);}
+  else{const e=await res.json();showToast('❌ '+(e.hata||'Hata'));}
+}
+async function bantSatirSil(){
+  const adet=parseInt(prompt('Kaç satır silinsin?'))||0;
+  if(adet<1)return;
+  const key=window._bantSeciliKey,parts=key.split('-'),row=parseInt(parts[0]),kolon=parseInt(parts[1]);
+  const res=await fetch('/api/siparisler/bant-satir-sil',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({satir:row,adet,kolon})});
+  if(res.ok){showToast('🗑 '+adet+' satır silindi');await loadBantView(key);}
+  else{const e=await res.json();showToast('❌ '+(e.hata||'Hata'));}
+}
+function bantAra(m){
+  const q=m.toLowerCase().trim();document.querySelectorAll('#bantGridTable td').forEach(td=>td.style.outline='');
+  if(!q||q.length<2){document.getElementById('bantAramaSonuc').textContent='';return;}
+  let n=0,f=null;document.querySelectorAll('#bantGridTable td').forEach(td=>{if((td.textContent||'').toLowerCase().includes(q)){td.style.outline='3px solid #ef4444';td.style.outlineOffset='-3px';n++;if(!f)f=td;}});
+  document.getElementById('bantAramaSonuc').textContent=n>0?n+' eşleşme':'Bulunamadı';if(f)f.scrollIntoView({behavior:'smooth',block:'center',inline:'center'});
+}
+function filterBantSiparis(){const q=document.getElementById('bantSiparisSearch').value.toLowerCase();renderBantSiparisList(window._bantSiparisList.filter(s=>(s.urun_aciklamasi||'').toLowerCase().includes(q)||(s.musteri_adi||'').toLowerCase().includes(q)||(s.renk||'').toLowerCase().includes(q)));}
+function renderBantSiparisList(list){
+  const c=document.getElementById('bantSiparisList'),items=[];
+  list.slice(0,100).forEach(s=>{const rd=[];try{const d=JSON.parse(s.renk_detay||'[]');if(Array.isArray(d))rd.push(...d);}catch(e){}if(rd.length>0)rd.forEach(r=>items.push({s,r}));else items.push({s,r:null});});
+  c.innerHTML=items.map((item,idx)=>{const{s,r}=item;let e=s.urun_aciklamasi||'';if(r)e+='-'+r.renk+'-'+r.adet+'ad';else e+='-'+(s.miktar||0)+'ad';if(s.termin)e+='-'+s.termin;const sk=s.id+'_'+(r?r.renk:'main'),kr=(window._secenekRenkler&&window._secenekRenkler[sk])||'#dbeafe';
+    return'<div data-sid="'+s.id+'" data-e="'+esc(e)+'" data-r="'+esc(r?r.renk:(s.renk||''))+'" data-a="'+(r?r.adet:(s.miktar||0))+'" data-sk="'+sk+'" style="padding:8px 10px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:8px;cursor:pointer;"><div style="flex:1;"><strong>'+esc(e)+'</strong><div style="font-size:11px;color:#64748b;">'+esc(s.musteri_adi)+' · '+esc(s.firma_adi)+' · #'+s.id+'</div></div><input type="color" id="rc_'+idx+'" value="'+kr+'" style="width:28px;height:24px;border:none;cursor:pointer;flex-shrink:0;" onclick="event.stopPropagation()"></div>';
+  }).join('')||'<div style="padding:16px;text-align:center;color:#94a3b8;">Sonuç bulunamadı</div>';
+  c.querySelectorAll('[data-sid]').forEach((row,i)=>{row.addEventListener('click',function(){const sid=parseInt(this.dataset.sid),e=this.dataset.e,r=this.dataset.r,a=parseInt(this.dataset.a)||0,sk=this.dataset.sk,ri=document.getElementById('rc_'+i),rv=ri?ri.value:'#dbeafe';fetch('/api/siparisler/bant-secenek-renk',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:sk,renk:rv})});window._secenekRenkler[sk]=rv;bantSiparisSec(sid,e,r,a,rv);});});
+}
+async function bantSiparisSec(sid,e,r,a,hr){const key=window._bantSeciliKey;await fetch('/api/siparisler/bant-atama',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key,siparis_id:sid,urun:e,renk:r||'',adet:a||0,termin:'',hucreRenk:hr||'#dbeafe',sure:0})});window._bantAtamalar=await fetch('/api/siparisler/bant-atama').then(r=>r.json());await loadBantView(key);closeBantSiparisModal();}
+async function bantSecimiSil(){const key=window._bantSeciliKey;await fetch('/api/siparisler/bant-atama',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key})});window._bantAtamalar=await fetch('/api/siparisler/bant-atama').then(r=>r.json());await loadBantView(key);closeBantSiparisModal();}
+document.getElementById('bantSiparisModal').addEventListener('click',function(e){if(e.target===this)closeBantSiparisModal();});
+
+// ==============================
+// ÖDEME PLANI
+// ==============================
+const odemeTbody = document.querySelector('#odemeTable tbody');
+const odemeEmptyMsg = document.getElementById('odemeEmptyMsg');
+const odemeSearchInput = document.getElementById('odemeSearchInput');
+const odemeDurumFilter = document.getElementById('odemeDurumFilter');
+const odemeTurFilter = document.getElementById('odemeTurFilter');
+const odemeOzet = document.getElementById('odemeOzet');
+const odemeEditModal = document.getElementById('odemeEditModal');
+const odemeEditForm = document.getElementById('odemeEditForm');
+
+let odemeDuzenlemeId = null;
+
+// modal aç/kapat
+function openOdemeModal(id) {
+  odemeDuzenlemeId = id || null;
+  document.getElementById('odemeModalTitle').textContent = id ? '✏️ Ödeme Düzenle' : '💵 Yeni Ödeme';
+  document.getElementById('odemeEditTuru').value = 'Havale/EFT';
+  document.getElementById('cekFields').classList.remove('show');
+  odemeEditForm.reset();
+  document.querySelector('[name="odemeEditId"]').value = '';
+  document.querySelector('[name="odemeEditDurum"]').value = 'Bekliyor';
+  document.querySelector('[name="odemeEditParaBirimi"]').value = 'TL';
+  document.querySelector('[name="odemeEditVade"]').value = new Date().toISOString().split('T')[0];
+
+  if (id) {
+    fetch('/api/odemeler/' + id).then(r => r.json()).then(row => {
+      document.querySelector('[name="odemeEditId"]').value = row.id;
+      document.querySelector('[name="odemeEditFirmaAdi"]').value = row.firma_adi;
+      document.querySelector('[name="odemeEditTuru"]').value = row.odeme_turu;
+      document.querySelector('[name="odemeEditTutar"]').value = row.tutar;
+      document.querySelector('[name="odemeEditParaBirimi"]').value = row.para_birimi;
+      document.querySelector('[name="odemeEditVade"]').value = row.vade_tarihi;
+      document.querySelector('[name="odemeEditAciklama"]').value = row.aciklama || '';
+      document.querySelector('[name="odemeEditDurum"]').value = row.durum;
+      document.querySelector('[name="odemeEditCekNo"]').value = row.cek_no || '';
+      document.querySelector('[name="odemeEditBanka"]').value = row.banka || '';
+      document.querySelector('[name="odemeEditCekSahibi"]').value = row.cek_sahibi || '';
+      if (row.odeme_turu === 'Çek') document.getElementById('cekFields').classList.add('show');
+    }).catch(e => alert('Kayıt yüklenemedi: ' + e.message));
+  }
+
+  odemeEditModal.classList.add('show');
+}
+
+function closeOdemeModal() {
+  odemeEditModal.classList.remove('show');
+  document.getElementById('cekFields').classList.remove('show');
+}
+
+// ödeme türü değişince çek alanlarını göster/gizle
+document.getElementById('odemeEditTuru').addEventListener('change', function() {
+  const cekFields = document.getElementById('cekFields');
+  if (this.value === 'Çek') cekFields.classList.add('show');
+  else cekFields.classList.remove('show');
+});
+
+// modal dışına tıklayınca kapat
+odemeEditModal.addEventListener('click', function(e) {
+  if (e.target === this) closeOdemeModal();
+});
+
+// kaydet (yeni veya düzenleme)
+document.getElementById('btnOdemeEditSave').addEventListener('click', async () => {
+  const id = document.querySelector('[name="odemeEditId"]').value;
+  const body = {
+    firma_adi: document.querySelector('[name="odemeEditFirmaAdi"]').value.trim(),
+    odeme_turu: document.querySelector('[name="odemeEditTuru"]').value,
+    tutar: parseFloat(document.querySelector('[name="odemeEditTutar"]').value) || 0,
+    para_birimi: document.querySelector('[name="odemeEditParaBirimi"]').value,
+    vade_tarihi: document.querySelector('[name="odemeEditVade"]').value,
+    aciklama: document.querySelector('[name="odemeEditAciklama"]').value.trim(),
+    durum: document.querySelector('[name="odemeEditDurum"]').value,
+    cek_no: document.querySelector('[name="odemeEditCekNo"]').value.trim(),
+    banka: document.querySelector('[name="odemeEditBanka"]').value.trim(),
+    cek_sahibi: document.querySelector('[name="odemeEditCekSahibi"]').value.trim()
+  };
+
+  if (!body.tutar || !body.vade_tarihi) {
+    return alert('Tutar ve vade tarihi zorunludur.');
+  }
+
+  const url = id ? '/api/odemeler/' + id : '/api/odemeler';
+  const method = id ? 'PUT' : 'POST';
+
+  const res = await fetch(url, {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ hata: 'Sunucu hatası' }));
+    return alert('Hata: ' + err.hata);
+  }
+
+  showToast(id ? '✅ Ödeme güncellendi!' : '✅ Ödeme kaydedildi!');
+  closeOdemeModal();
+  loadOdemeler();
+});
+
+// yeni ödeme butonu
+document.getElementById('btnOdemeEkle').addEventListener('click', () => openOdemeModal());
+
+// ödeme listesini yükle
+async function loadOdemeler() {
+  try {
+    const durum = odemeDurumFilter.value;
+    const tur = odemeTurFilter.value;
+
+    let url = '/api/odemeler?';
+    if (durum) url += 'durum=' + encodeURIComponent(durum) + '&';
+    if (tur) url += 'odeme_turu=' + encodeURIComponent(tur) + '&';
+
+    let rows = await fetch(url).then(r => r.json());
+    const bugun = new Date().toISOString().split('T')[0];
+
+    // client-side arama
+    const q = odemeSearchInput.value.toLowerCase();
+    if (q) {
+      rows = rows.filter(r =>
+        (r.firma_adi || '').toLowerCase().includes(q) ||
+        (r.aciklama || '').toLowerCase().includes(q) ||
+        (r.cek_no || '').toLowerCase().includes(q)
+      );
+    }
+
+    odemeTbody.innerHTML = '';
+    odemeEmptyMsg.style.display = rows.length ? 'none' : 'block';
+    document.getElementById('odemeCount').textContent = rows.filter(r => r.durum === 'Bekliyor').length;
+
+    let bekleyenToplam = 0, gecikmisToplam = 0, buHaftaToplam = 0;
+    const haftaBaslangic = new Date();
+    haftaBaslangic.setDate(haftaBaslangic.getDate() - haftaBaslangic.getDay() + 1);
+    const haftaBitis = new Date(haftaBaslangic);
+    haftaBitis.setDate(haftaBaslangic.getDate() + 6);
+    const hbStr = haftaBaslangic.toISOString().split('T')[0];
+    const htStr = haftaBitis.toISOString().split('T')[0];
+
+    rows.forEach(row => {
+      const para = paraIsareti(row.para_birimi);
+      const pc = paraClass(row.para_birimi);
+      const typeClass = 'type-' + row.odeme_turu.toLowerCase().replace('ç','c').replace('ü','u').replace('ı','i').replace('ğ','g').replace('ş','s').replace(' ','-').replace('/','-');
+      const durumClass = 'status-' + row.durum.toLowerCase().replace('ç','c').replace('ü','u').replace('ı','i').replace('ö','o').replace('ğ','g').replace('ş','s');
+
+      // vade durumu
+      let vadeStyle = '';
+      if (row.durum === 'Bekliyor') {
+        if (row.vade_tarihi < bugun) vadeStyle = 'color:#ef4444;font-weight:700;';
+        else if (row.vade_tarihi >= hbStr && row.vade_tarihi <= htStr) vadeStyle = 'color:#f59e0b;font-weight:700;';
+
+        bekleyenToplam += row.tutar;
+        if (row.vade_tarihi < bugun) gecikmisToplam += row.tutar;
+        if (row.vade_tarihi >= hbStr && row.vade_tarihi <= htStr) buHaftaToplam += row.tutar;
+      }
+
+      // çek/banka bilgisi
+      let cekBilgi = '<span style="color:#94a3b8;">-</span>';
+      if (row.odeme_turu === 'Çek') {
+        cekBilgi = (row.cek_no ? '#' + esc(row.cek_no) : '') + (row.banka ? ' - ' + esc(row.banka) : '');
+        if (!cekBilgi.trim() || cekBilgi === ' - ') cekBilgi = '<span style="color:#94a3b8;">Çek</span>';
+      } else if (row.cek_no) {
+        cekBilgi = '#' + esc(row.cek_no);
+      }
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${esc(row.firma_adi)}</td>
+        <td><span class="odeme-type-badge ${typeClass}">${esc(row.odeme_turu)}</span></td>
+        <td class="price ${pc}">${para} ${formatPara(row.tutar)}</td>
+        <td><span style="${vadeStyle}">${row.vade_tarihi}</span></td>
+        <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(row.aciklama)}">${esc(row.aciklama)}</td>
+        <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(cekBilgi)}">${cekBilgi}</td>
+        <td>
+          <select class="status-badge ${durumClass}" onchange="odemeDurumGuncelle(${row.id}, this.value)" style="cursor:pointer;border:none;padding:4px 8px;font-weight:700;font-size:11px;">
+            <option value="Bekliyor" ${row.durum === 'Bekliyor' ? 'selected' : ''}>Bekliyor</option>
+            <option value="Tahsil Edildi" ${row.durum === 'Tahsil Edildi' ? 'selected' : ''}>Tahsil Edildi</option>
+            <option value="Gecikti" ${row.durum === 'Gecikti' ? 'selected' : ''}>Gecikti</option>
+            <option value="İptal" ${row.durum === 'İptal' ? 'selected' : ''}>İptal</option>
+          </select>
+        </td>
+        <td style="white-space:nowrap;">
+          <button class="btn-warning btn-sm" onclick="openOdemeModal(${row.id})">✏️</button>
+          <button class="btn-danger btn-sm" onclick="odemeSil(${row.id})">🗑</button>
+        </td>
+      `;
+      odemeTbody.appendChild(tr);
+    });
+
+    // özet kartları
+    odemeOzet.innerHTML = `
+      <div class="summary-card"><div class="num">${rows.filter(r => r.durum === 'Bekliyor').length}</div><div class="lbl">Bekleyen</div></div>
+      <div class="summary-card"><div class="num" style="color:#f59e0b;">₺ ${formatPara(buHaftaToplam)}</div><div class="lbl">Bu Hafta</div></div>
+      <div class="summary-card"><div class="num" style="color:#ef4444;">₺ ${formatPara(gecikmisToplam)}</div><div class="lbl">Gecikmiş</div></div>
+      <div class="summary-card"><div class="num" style="color:#059669;">₺ ${formatPara(bekleyenToplam)}</div><div class="lbl">Toplam Bekleyen</div></div>
+    `;
+
+    // haftalık görünüm
+    await loadHaftalikOdemeler();
+  } catch (e) {
+    console.error('Ödeme listesi yüklenemedi:', e);
+  }
+}
+
+// haftalık gruplandırılmış görünüm
+async function loadHaftalikOdemeler() {
+  try {
+    const data = await fetch('/api/odemeler/haftalik').then(r => r.json());
+    const weekCards = document.getElementById('weekCards');
+    const bugun = data.bugun;
+
+    // bu hafta aralığını bul
+    const hb = new Date();
+    hb.setDate(hb.getDate() - hb.getDay() + 1);
+    const ht = new Date(hb);
+    ht.setDate(hb.getDate() + 6);
+    const hbStr = hb.toISOString().split('T')[0];
+
+    weekCards.innerHTML = '';
+
+    // gecikmiş kartı
+    if (data.gecikmis.length > 0) {
+      weekCards.innerHTML += `
+        <div class="week-card past" onclick="toggleWeekDetail(this)" style="border-color:#ef4444;">
+          <div class="wc-label">⚠️ Gecikmiş</div>
+          <div class="wc-date">${data.gecikmis.length} ödeme</div>
+          <div class="wc-amount overdue">₺ ${formatPara(data.gecikmis_toplam)}</div>
+          <div class="week-detail">${data.gecikmis.map(o => `
+            <div style="font-size:12px;padding:2px 0;border-bottom:1px solid #fee2e2;">
+              <strong>${esc(o.firma_adi || '?')}</strong> · ${esc(o.odeme_turu)} · ₺${formatPara(o.tutar)} · <span style="color:#ef4444;">${o.vade_tarihi}</span>
+            </div>
+          `).join('')}</div>
+        </div>
+      `;
+    }
+
+    // hafta kartları
+    data.haftalar.forEach((h, i) => {
+      const isCurrent = hbStr >= h.baslangic && hbStr <= h.bitis;
+      const isPast = h.bitis < bugun;
+      let cls = '';
+      if (isCurrent) cls = 'current';
+      else if (isPast) cls = 'past';
+
+      const ayAdi = ['Oca','Şub','Mar','Nis','May','Haz','Tem','Ağu','Eyl','Eki','Kas','Ara'];
+      const bParts = h.baslangic.split('-');
+      const eParts = h.bitis.split('-');
+      const bAy = ayAdi[parseInt(bParts[1]) - 1];
+      const eAy = ayAdi[parseInt(eParts[1]) - 1];
+      const dateLabel = bAy === eAy
+        ? bParts[2] + ' - ' + eParts[2] + ' ' + eAy
+        : bParts[2] + ' ' + bAy + ' - ' + eParts[2] + ' ' + eAy;
+
+      const amountClass = isCurrent ? 'thisweek' : (isPast ? 'overdue' : '');
+
+      weekCards.innerHTML += `
+        <div class="week-card ${cls}" onclick="toggleWeekDetail(this)">
+          <div class="wc-label">${isCurrent ? '📍 Bu Hafta' : (isPast ? 'Geçti' : 'Hafta ' + (i + 1))}</div>
+          <div class="wc-date">${dateLabel}</div>
+          <div class="wc-amount ${amountClass}">${h.toplam_tutar > 0 ? '₺ ' + formatPara(h.toplam_tutar) : '-'}</div>
+          <div class="wc-count">${h.odemeler.length} ödeme</div>
+          ${h.odemeler.length > 0 ? `
+          <div class="week-detail">${h.odemeler.map(o => `
+            <div style="font-size:12px;padding:2px 0;border-bottom:1px solid #e2e8f0;">
+              <strong>${esc(o.firma_adi || '?')}</strong> · ${esc(o.odeme_turu)} · ₺${formatPara(o.tutar)} · ${o.vade_tarihi}
+              ${o.cek_no ? '<br><span style="color:#64748b;font-size:10px;">Çek: #' + esc(o.cek_no) + (o.banka ? ' · ' + esc(o.banka) : '') + '</span>' : ''}
+            </div>
+          `).join('')}</div>
+          ` : ''}
+        </div>
+      `;
+    });
+
+    document.getElementById('haftalikEmpty').style.display = (data.gecikmis.length === 0 && data.haftalar.every(h => h.odemeler.length === 0)) ? 'block' : 'none';
+  } catch (e) {
+    console.error('Haftalık görünüm yüklenemedi:', e);
+  }
+}
+
+function toggleWeekDetail(card) {
+  const detail = card.querySelector('.week-detail');
+  if (detail) detail.classList.toggle('show');
+}
+
+// hızlı durum güncelleme
+async function odemeDurumGuncelle(id, yeniDurum) {
+  try {
+    await fetch('/api/odemeler/' + id + '/durum', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ durum: yeniDurum })
+    });
+    showToast('✅ Durum güncellendi');
+    loadOdemeler();
+  } catch (e) {
+    alert('Durum güncellenemedi: ' + e.message);
+  }
+}
+
+// ödeme sil
+async function odemeSil(id) {
+  if (!confirm('Bu ödeme kaydını silmek istediğine emin misin?')) return;
+  await fetch('/api/odemeler/' + id, { method: 'DELETE' });
+  showToast('🗑 Ödeme silindi');
+  loadOdemeler();
+}
+
+// filtreleme
+odemeDurumFilter.addEventListener('change', () => loadOdemeler());
+odemeTurFilter.addEventListener('change', () => loadOdemeler());
+odemeSearchInput.addEventListener('input', () => loadOdemeler());
+document.getElementById('btnOdemeRefresh').addEventListener('click', () => loadOdemeler());
+
+// Başlangıçta ödemeleri de yükle (sekme değişince)
+const origTabHandler = document.querySelectorAll('.tab-btn')[0].onclick;
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    if (this.dataset.tab === 'odemeler') loadOdemeler();
+  });
+});
 
 // ==============================
 // Başlangıç

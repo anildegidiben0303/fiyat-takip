@@ -6,8 +6,6 @@
 app = 'fiyat-takip'
 primary_region = 'ams'
 
-[build]
-
 [env]
   DB_PATH = '/app/data/fiyatlar.db'
   PORT = '3000'
@@ -25,3 +23,4 @@ primary_region = 'ams'
 
 [[vm]]
   size = 'shared-cpu-1x'
+  memory = '512MB'
