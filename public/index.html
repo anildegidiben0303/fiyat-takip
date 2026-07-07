@@ -667,7 +667,7 @@
     <div class="card">
       <h2>💵 Ödeme Listesi</h2>
       <div class="search-bar">
-        <input type="text" id="odemeSearchInput" placeholder="🔍 Firma, açıklama veya çek no ara...">
+        <input type="text" id="odemeSearchInput" placeholder="🔍 Firma, çek no veya banka ara...">
         <select id="odemeDurumFilter" style="width:140px;">
           <option value="">Tüm Durumlar</option>
           <option value="Bekliyor">Bekliyor</option>
@@ -695,7 +695,6 @@
               <th>Tür</th>
               <th>Tutar</th>
               <th>Vade</th>
-              <th>Açıklama</th>
               <th>Çek/Banka</th>
               <th>Durum</th>
               <th></th>
@@ -2418,7 +2417,6 @@ async function loadOdemeler() {
         <td><span class="odeme-type-badge ${typeClass}">${esc(row.odeme_turu)}</span></td>
         <td class="price ${pc}">${para} ${formatPara(row.tutar)}</td>
         <td><span style="${vadeStyle}">${row.vade_tarihi}</span></td>
-        <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(row.aciklama)}">${esc(row.aciklama)}</td>
         <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(cekBilgi)}">${cekBilgi}</td>
         <td>
           <select class="status-badge ${durumClass}" onchange="odemeDurumGuncelle(${row.id}, this.value)" style="cursor:pointer;border:none;padding:4px 8px;font-weight:700;font-size:11px;">
