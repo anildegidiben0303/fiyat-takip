@@ -119,6 +119,7 @@ try { db.exec('ALTER TABLE siparisler ADD COLUMN siparis_tarihi TEXT NOT NULL DE
 try { db.exec('ALTER TABLE siparisler ADD COLUMN termin TEXT DEFAULT \'\''); } catch (e) { /* zaten var */ }
 try { db.exec('ALTER TABLE siparisler ADD COLUMN renk TEXT DEFAULT \'\''); } catch (e) { /* zaten var */ }
 try { db.exec('ALTER TABLE siparisler ADD COLUMN renk_detay TEXT DEFAULT \'[]\''); } catch (e) { /* zaten var */ }
+try { db.exec('ALTER TABLE siparisler ADD COLUMN excel_dosya TEXT DEFAULT \'\''); } catch (e) { /* zaten var */ }
 
 // --- gerçekleşen (maliyet) tablosu ---
 db.exec(`
@@ -686,26 +687,35 @@ app.get('/api/siparisler/:id/excel',async(req,res)=>{
 app.get('/api/siparisler/:id',(req,res)=>{const row=db.prepare('SELECT * FROM siparisler WHERE id = ?').get(req.params.id);if(!row)return res.status(404).json({hata:'Bulunamadı'});res.json(row);});
 
 // sipariş güncelle
-app.put('/api/siparisler/:id', upload.single('gorsel'), (req, res) => {
+const siparisUpdateUpload = karmaUpload.fields([{ name: 'gorsel', maxCount: 1 }, { name: 'excel_dosya', maxCount: 1 }]);
+
+app.put('/api/siparisler/:id', siparisUpdateUpload, (req, res) => {
   const { musteri_adi, firma_adi, urun_aciklamasi, fiyat, para_birimi, miktar, tarih, notlar, durum, termin, renk, renk_detay } = req.body;
 
   if (!musteri_adi || !urun_aciklamasi || fiyat == null) {
-    if (req.file) fs.unlinkSync(req.file.path);
     return res.status(400).json({ hata: 'Müşteri adı, ürün açıklaması ve fiyat zorunludur' });
   }
 
-  const eski = db.prepare('SELECT gorsel FROM siparisler WHERE id = ?').get(req.params.id);
+  const eski = db.prepare('SELECT gorsel, excel_dosya FROM siparisler WHERE id = ?').get(req.params.id);
   if (!eski) return res.status(404).json({ hata: 'Sipariş bulunamadı' });
 
   let gorselYolu = eski.gorsel || '';
+  if (req.files && req.files.gorsel) {
+    gorselYolu = 'uploads/' + req.files.gorsel[0].filename;
+  }
 
-  if (req.file) {
-    gorselYolu = 'uploads/' + req.file.filename;
+  let excelYolu = eski.excel_dosya || '';
+  if (req.files && req.files.excel_dosya) {
+    const ext = path.extname(req.files.excel_dosya[0].originalname);
+    const excelAdi = 'excel_s_' + Date.now() + '_' + req.params.id + ext;
+    const hedefYol = path.join(uploadsDir, excelAdi);
+    fs.renameSync(req.files.excel_dosya[0].path, hedefYol);
+    excelYolu = 'uploads/' + excelAdi;
   }
 
   db.prepare(`
     UPDATE siparisler
-    SET musteri_adi=?, firma_adi=?, urun_aciklamasi=?, fiyat=?, para_birimi=?, miktar=?, tarih=?, notlar=?, durum=?, gorsel=?, termin=?, renk=?, renk_detay=?
+    SET musteri_adi=?, firma_adi=?, urun_aciklamasi=?, fiyat=?, para_birimi=?, miktar=?, tarih=?, notlar=?, durum=?, gorsel=?, termin=?, renk=?, renk_detay=?, excel_dosya=?
     WHERE id=?
   `).run(
     musteri_adi,
@@ -721,6 +731,7 @@ app.put('/api/siparisler/:id', upload.single('gorsel'), (req, res) => {
     termin || '',
     renk || '',
     renk_detay || '[]',
+    excelYolu,
     req.params.id
   );
 

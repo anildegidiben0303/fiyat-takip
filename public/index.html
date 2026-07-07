@@ -968,6 +968,13 @@
             <div id="renkDetayList" style="display:flex;flex-direction:column;gap:6px;"></div>
             <button type="button" class="btn-outline btn-sm" onclick="renkDetayEkle()" style="margin-top:8px;">+ Renk Ekle</button>
           </div>
+          <div class="full" style="border-top:1px solid #e2e8f0;padding-top:12px;margin-top:8px;">
+            <label>📥 Maliyet Excel'i Yükle</label>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+              <input type="file" id="siparisEditExcel" accept=".xlsx,.xls" style="max-width:260px;">
+              <span style="font-size:11px;color:#64748b;">Boş bırakırsan mevcut Excel korunur.</span>
+            </div>
+          </div>
         </div>
       </form>
     </div>
@@ -1208,6 +1215,7 @@ document.getElementById('editModal').addEventListener('click', function(e) {
 function closeSiparisEditModal() {
   siparisEditModal.classList.remove('show');
   siparisEditForm.reset();
+  document.getElementById('siparisEditExcel').value = '';
   renkDetaylar = [];
   renkDetayRender();
 }
@@ -1766,6 +1774,10 @@ document.getElementById('btnSiparisEditSave').addEventListener('click', async ()
   formData.append('termin', document.querySelector('[name="siparisEditTermin"]').value);
   formData.append('renk', document.querySelector('[name="siparisEditRenk"]').value.trim());
   formData.append('renk_detay', JSON.stringify(renkDetaylar.filter(r => r.renk.trim())));
+
+  // excel dosyası varsa ekle
+  const excelFile = document.getElementById('siparisEditExcel').files[0];
+  if (excelFile) formData.append('excel_dosya', excelFile);
 
   const res = await fetch(`/api/siparisler/${id}`, {
     method: 'PUT',
