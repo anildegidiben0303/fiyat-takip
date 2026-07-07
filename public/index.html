@@ -400,6 +400,13 @@
   .type-kredi { background: #ede9fe; color: #5b21b6; }
   .type-senet { background: #fee2e2; color: #991b1b; }
   .type-fatura { background: #fce7f3; color: #9d174d; }
+.type-banka-kredisi { background: #e0e7ff; color: #3730a3; }
+.kredi-group-row { background: #eef2ff; cursor: pointer; transition: background 0.15s; }
+.kredi-group-row:hover { background: #e0e7ff; }
+.kredi-group-row td { font-weight: 700; border-bottom: 2px solid #c7d2fe; }
+.kredi-sub-row { background: #fafbff; }
+.kredi-sub-row td { font-size: 12px; color: #475569; padding: 4px 10px; border-bottom: 1px solid #eef2ff; }
+.kredi-sub-row.hidden { display: none; }
 
   .cek-fields { display: none; }
   .cek-fields.show { display: contents; }
@@ -1089,6 +1096,37 @@
     </div>
   </div>
 </div>
+
+<!-- Kalanı Güncelle Modalı -->
+<div class="modal-overlay" id="krediGuncelleModal">
+  <div class="modal" style="max-width:480px;">
+    <div class="modal-header">
+      <h3>🔄 Kalanı Güncelle</h3>
+      <button class="close-modal" onclick="closeKrediGuncelleModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div>
+          <label>Kalan Ana Para</label>
+          <input type="number" id="krediKalanTutar" step="0.01" min="0">
+        </div>
+        <div>
+          <label>Kalan Taksit Sayısı</label>
+          <input type="number" id="krediKalanTaksit" value="1" min="1" readonly style="background:#f1f5f9;">
+        </div>
+      </div>
+      <div style="font-size:12px;color:#64748b;margin-top:8px;">
+        Kalan tutar, ödenmemiş taksitlere eşit bölünecek.
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-outline" onclick="closeKrediGuncelleModal()">İptal</button>
+      <button class="btn-success" id="btnKrediGuncelle">🔄 Güncelle</button>
+    </div>
+  </div>
+</div>
+
+<input type="hidden" id="krediGuncelleGrupId">
 
 <script>
 // ==============================
@@ -2349,6 +2387,7 @@ document.getElementById('btnOdemeEditSave').addEventListener('click', async () =
     const vade = parseInt(document.querySelector('[name="odemeEditKrediVade"]').value) || 1;
     if (vade < 1) return alert('Vade en az 1 ay olmalıdır.');
 
+    const krediGrupId = 'kredi_' + Date.now();
     const aylikTutar = body.tutar / vade;
     const ilkTarih = new Date(body.vade_tarihi);
     let basarili = 0;
@@ -2362,7 +2401,8 @@ document.getElementById('btnOdemeEditSave').addEventListener('click', async () =
         ...body,
         tutar: Math.round(aylikTutar * 100) / 100,
         vade_tarihi: tarihStr,
-        aciklama: body.aciklama + ' (Taksit ' + (i + 1) + '/' + vade + ')'
+        aciklama: (i === 0 ? body.aciklama : body.aciklama + ' (Taksit ' + (i + 1) + '/' + vade + ')'),
+        kredi_grup_id: krediGrupId
       };
 
       const res = await fetch('/api/odemeler', {
@@ -2436,24 +2476,35 @@ async function loadOdemeler() {
     const hbStr = haftaBaslangic.toISOString().split('T')[0];
     const htStr = haftaBitis.toISOString().split('T')[0];
 
+    // Banka Kredisi gruplarını ayır
+    const krediGruplari = {};
+    const normalRows = [];
+
     rows.forEach(row => {
+      if (row.odeme_turu === 'Banka Kredisi' && row.kredi_grup_id) {
+        if (!krediGruplari[row.kredi_grup_id]) krediGruplari[row.kredi_grup_id] = [];
+        krediGruplari[row.kredi_grup_id].push(row);
+      } else {
+        normalRows.push(row);
+      }
+    });
+
+    // Normal satırları render et
+    function renderRow(row, isSub) {
       const para = paraIsareti(row.para_birimi);
       const pc = paraClass(row.para_birimi);
       const typeClass = 'type-' + row.odeme_turu.toLowerCase().replace('ç','c').replace('ü','u').replace('ı','i').replace('ğ','g').replace('ş','s').replace(' ','-').replace('/','-');
       const durumClass = 'status-' + row.durum.toLowerCase().replace('ç','c').replace('ü','u').replace('ı','i').replace('ö','o').replace('ğ','g').replace('ş','s');
 
-      // vade durumu
       let vadeStyle = '';
       if (row.durum === 'Bekliyor') {
         if (row.vade_tarihi < bugun) vadeStyle = 'color:#ef4444;font-weight:700;';
         else if (row.vade_tarihi >= hbStr && row.vade_tarihi <= htStr) vadeStyle = 'color:#f59e0b;font-weight:700;';
-
         bekleyenToplam += row.tutar;
         if (row.vade_tarihi < bugun) gecikmisToplam += row.tutar;
         if (row.vade_tarihi >= hbStr && row.vade_tarihi <= htStr) buHaftaToplam += row.tutar;
       }
 
-      // çek/banka bilgisi
       let cekBilgi = '<span style="color:#94a3b8;">-</span>';
       if (row.odeme_turu === 'Çek') {
         cekBilgi = (row.cek_no ? '#' + esc(row.cek_no) : '') + (row.banka ? ' - ' + esc(row.banka) : '');
@@ -2463,9 +2514,10 @@ async function loadOdemeler() {
       }
 
       const tr = document.createElement('tr');
+      if (isSub) tr.className = 'kredi-sub-row';
       tr.innerHTML = `
-        <td>${esc(row.firma_adi)}</td>
-        <td><span class="odeme-type-badge ${typeClass}">${esc(row.odeme_turu)}</span></td>
+        <td>${isSub ? '' : esc(row.firma_adi)}</td>
+        <td><span class="odeme-type-badge ${typeClass}">${isSub ? '↳ Taksit' : esc(row.odeme_turu)}</span></td>
         <td class="price ${pc}">${para} ${formatPara(row.tutar)}</td>
         <td><span style="${vadeStyle}">${row.vade_tarihi}</span></td>
         <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(cekBilgi)}">${cekBilgi}</td>
@@ -2482,7 +2534,51 @@ async function loadOdemeler() {
           <button class="btn-danger btn-sm" onclick="odemeSil(${row.id})">🗑</button>
         </td>
       `;
-      odemeTbody.appendChild(tr);
+      return tr;
+    }
+
+    // Önce normal satırları render et
+    normalRows.forEach(row => odemeTbody.appendChild(renderRow(row, false)));
+
+    // Kredi gruplarını render et
+    Object.entries(krediGruplari).forEach(([grupId, taksitler]) => {
+      taksitler.sort((a, b) => a.vade_tarihi.localeCompare(b.vade_tarihi));
+
+      const anaPara = taksitler.reduce((s, t) => s + t.tutar, 0);
+      const odenen = taksitler.filter(t => t.durum === 'Tahsil Edildi').reduce((s, t) => s + t.tutar, 0);
+      const kalan = anaPara - odenen;
+      const firma = taksitler[0].firma_adi || 'Kredi';
+      const tumuOdendi = taksitler.every(t => t.durum === 'Tahsil Edildi' || t.durum === 'İptal');
+
+      // Grup başlık satırı
+      const groupTr = document.createElement('tr');
+      groupTr.className = 'kredi-group-row';
+      groupTr.setAttribute('data-grup', grupId);
+      groupTr.onclick = function() { toggleKrediGrup(grupId); };
+      groupTr.innerHTML = `
+        <td>🏦 ${esc(firma)}</td>
+        <td><span class="odeme-type-badge type-banka-kredisi">Banka Kredisi</span></td>
+        <td class="price" style="font-weight:800;">₺ ${formatPara(anaPara)}</td>
+        <td>${taksitler.length} taksit</td>
+        <td>
+          <span style="color:#059669;font-weight:700;">Ödenen: ₺ ${formatPara(odenen)}</span><br>
+          <span style="color:${kalan > 0 ? '#ef4444' : '#059669'};font-size:11px;">Kalan: ₺ ${formatPara(kalan)}</span>
+        </td>
+        <td>${tumuOdendi ? '✅' : '⏳'}</td>
+        <td style="white-space:nowrap;">
+          ${!tumuOdendi ? `<button class="btn-outline btn-sm" onclick="event.stopPropagation();openKrediGuncelle('${grupId}', ${kalan}, ${taksitler.filter(t => t.durum !== 'Tahsil Edildi' && t.durum !== 'İptal').length})" title="Kalanı Güncelle" style="font-size:11px;">🔄</button>` : ''}
+          <span style="font-size:11px;color:#64748b;">▼</span>
+        </td>
+      `;
+      odemeTbody.appendChild(groupTr);
+
+      // Alt satırlar (taksitler)
+      taksitler.forEach(t => {
+        const subTr = renderRow(t, true);
+        subTr.classList.add('kredi-sub-row');
+        subTr.setAttribute('data-kredi-grup', grupId);
+        odemeTbody.appendChild(subTr);
+      });
     });
 
     // özet kartları
@@ -2579,6 +2675,72 @@ function toggleWeekDetail(card) {
   const detail = card.querySelector('.week-detail');
   if (detail) detail.classList.toggle('show');
 }
+
+// ==============================
+// Kredi grup toggle
+// ==============================
+function toggleKrediGrup(grupId) {
+  const subs = document.querySelectorAll('[data-kredi-grup="' + grupId + '"]');
+  const icon = document.querySelector('[data-grup="' + grupId + '"] span:last-child');
+  const hidden = subs.length > 0 && subs[0].classList.contains('hidden');
+  subs.forEach(s => s.classList.toggle('hidden', !hidden));
+  if (icon) icon.textContent = hidden ? '▼' : '▲';
+}
+
+// ==============================
+// Kalanı Güncelle Modal
+// ==============================
+function openKrediGuncelle(grupId, kalanTutar, kalanTaksit) {
+  document.getElementById('krediGuncelleGrupId').value = grupId;
+  document.getElementById('krediKalanTutar').value = kalanTutar;
+  document.getElementById('krediKalanTaksit').value = kalanTaksit;
+  document.getElementById('krediGuncelleModal').classList.add('show');
+}
+
+function closeKrediGuncelleModal() {
+  document.getElementById('krediGuncelleModal').classList.remove('show');
+}
+
+document.getElementById('krediGuncelleModal').addEventListener('click', function(e) {
+  if (e.target === this) closeKrediGuncelleModal();
+});
+
+document.getElementById('btnKrediGuncelle').addEventListener('click', async () => {
+  const grupId = document.getElementById('krediGuncelleGrupId').value;
+  const kalanTutar = parseFloat(document.getElementById('krediKalanTutar').value) || 0;
+  const kalanTaksit = parseInt(document.getElementById('krediKalanTaksit').value) || 1;
+
+  if (!grupId || kalanTutar <= 0) return;
+
+  // Bu gruba ait ödenmemiş taksitleri bul
+  const rows = await fetch('/api/odemeler').then(r => r.json());
+  const bekleyenler = rows.filter(r =>
+    r.kredi_grup_id === grupId &&
+    r.durum !== 'Tahsil Edildi' &&
+    r.durum !== 'İptal'
+  ).sort((a, b) => a.vade_tarihi.localeCompare(b.vade_tarihi));
+
+  if (bekleyenler.length === 0) {
+    closeKrediGuncelleModal();
+    return alert('Güncellenecek taksit bulunamadı.');
+  }
+
+  const yeniTutar = Math.round((kalanTutar / bekleyenler.length) * 100) / 100;
+  let guncellenen = 0;
+
+  for (const t of bekleyenler) {
+    const res = await fetch('/api/odemeler/' + t.id, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...t, tutar: yeniTutar, kredi_grup_id: grupId })
+    });
+    if (res.ok) guncellenen++;
+  }
+
+  showToast('✅ ' + guncellenen + ' taksit güncellendi (₺ ' + formatPara(yeniTutar) + '/ay)');
+  closeKrediGuncelleModal();
+  loadOdemeler();
+});
 
 // hızlı durum güncelleme
 async function odemeDurumGuncelle(id, yeniDurum) {

@@ -178,6 +178,7 @@ db.exec(`
 try { db.exec('ALTER TABLE odemeler ADD COLUMN cek_no TEXT DEFAULT \'\''); } catch (e) { /* zaten var */ }
 try { db.exec('ALTER TABLE odemeler ADD COLUMN banka TEXT DEFAULT \'\''); } catch (e) { /* zaten var */ }
 try { db.exec('ALTER TABLE odemeler ADD COLUMN cek_sahibi TEXT DEFAULT \'\''); } catch (e) { /* zaten var */ }
+try { db.exec('ALTER TABLE odemeler ADD COLUMN kredi_grup_id TEXT DEFAULT \'\''); } catch (e) { /* zaten var */ }
 
 // middleware
 app.use(express.json());
@@ -951,15 +952,15 @@ app.get('/api/odemeler/:id', (req, res) => {
 
 // yeni ödeme ekle
 app.post('/api/odemeler', (req, res) => {
-  const { musteri_adi, firma_adi, odeme_turu, tutar, para_birimi, vade_tarihi, aciklama, cek_no, banka, cek_sahibi } = req.body;
+  const { musteri_adi, firma_adi, odeme_turu, tutar, para_birimi, vade_tarihi, aciklama, cek_no, banka, cek_sahibi, kredi_grup_id } = req.body;
 
   if (!tutar || !vade_tarihi) {
     return res.status(400).json({ hata: 'Tutar ve vade tarihi zorunludur' });
   }
 
   const stmt = db.prepare(`
-    INSERT INTO odemeler (musteri_adi, firma_adi, odeme_turu, tutar, para_birimi, vade_tarihi, aciklama, cek_no, banka, cek_sahibi)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO odemeler (musteri_adi, firma_adi, odeme_turu, tutar, para_birimi, vade_tarihi, aciklama, cek_no, banka, cek_sahibi, kredi_grup_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const info = stmt.run(
@@ -972,7 +973,8 @@ app.post('/api/odemeler', (req, res) => {
     aciklama || '',
     cek_no || '',
     banka || '',
-    cek_sahibi || ''
+    cek_sahibi || '',
+    kredi_grup_id || ''
   );
 
   res.status(201).json({ id: info.lastInsertRowid, mesaj: 'Ödeme kaydedildi' });
@@ -980,7 +982,7 @@ app.post('/api/odemeler', (req, res) => {
 
 // ödeme güncelle
 app.put('/api/odemeler/:id', (req, res) => {
-  const { musteri_adi, firma_adi, odeme_turu, tutar, para_birimi, vade_tarihi, aciklama, durum, cek_no, banka, cek_sahibi } = req.body;
+  const { musteri_adi, firma_adi, odeme_turu, tutar, para_birimi, vade_tarihi, aciklama, durum, cek_no, banka, cek_sahibi, kredi_grup_id } = req.body;
 
   if (!tutar || !vade_tarihi) {
     return res.status(400).json({ hata: 'Tutar ve vade tarihi zorunludur' });
@@ -991,7 +993,7 @@ app.put('/api/odemeler/:id', (req, res) => {
 
   db.prepare(`
     UPDATE odemeler
-    SET musteri_adi='', firma_adi=?, odeme_turu=?, tutar=?, para_birimi=?, vade_tarihi=?, aciklama=?, durum=?, cek_no=?, banka=?, cek_sahibi=?
+    SET musteri_adi='', firma_adi=?, odeme_turu=?, tutar=?, para_birimi=?, vade_tarihi=?, aciklama=?, durum=?, cek_no=?, banka=?, cek_sahibi=?, kredi_grup_id=?
     WHERE id=?
   `).run(
     firma_adi || '',
@@ -1004,6 +1006,7 @@ app.put('/api/odemeler/:id', (req, res) => {
     cek_no || '',
     banka || '',
     cek_sahibi || '',
+    kredi_grup_id || '',
     req.params.id
   );
 
