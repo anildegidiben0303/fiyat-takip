@@ -2375,7 +2375,8 @@ document.getElementById('btnOdemeEditSave').addEventListener('click', async () =
     durum: document.querySelector('[name="odemeEditDurum"]').value,
     cek_no: document.querySelector('[name="odemeEditCekNo"]').value.trim(),
     banka: document.querySelector('[name="odemeEditBanka"]').value.trim(),
-    cek_sahibi: document.querySelector('[name="odemeEditCekSahibi"]').value.trim()
+    cek_sahibi: document.querySelector('[name="odemeEditCekSahibi"]').value.trim(),
+    kredi_grup_id: window._araOdemeGrupId || ''
   };
 
   if (!body.tutar || !body.vade_tarihi) {
@@ -2387,36 +2388,44 @@ document.getElementById('btnOdemeEditSave').addEventListener('click', async () =
     const vade = parseInt(document.querySelector('[name="odemeEditKrediVade"]').value) || 1;
     if (vade < 1) return alert('Vade en az 1 ay olmalıdır.');
 
-    const krediGrupId = 'kredi_' + Date.now();
-    const aylikTutar = body.tutar / vade;
-    const ilkTarih = new Date(body.vade_tarihi);
-    let basarili = 0;
+    // Ara ödeme: vade=1 ve kredi_grup_id varsa, tek kayıt oluştur
+    if (vade === 1 && window._araOdemeGrupId) {
+      body.kredi_grup_id = window._araOdemeGrupId;
+      window._araOdemeGrupId = null;
+      // Normal tek kayıt akışına bırak (aşağıdaki fetch'e düş)
+    } else {
+      // Yeni kredi: çoklu taksit oluştur
+      const krediGrupId = 'kredi_' + Date.now();
+      const aylikTutar = body.tutar / vade;
+      const ilkTarih = new Date(body.vade_tarihi);
+      let basarili = 0;
 
-    for (let i = 0; i < vade; i++) {
-      const taksitTarih = new Date(ilkTarih);
-      taksitTarih.setMonth(taksitTarih.getMonth() + i);
-      const tarihStr = taksitTarih.toISOString().split('T')[0];
+      for (let i = 0; i < vade; i++) {
+        const taksitTarih = new Date(ilkTarih);
+        taksitTarih.setMonth(taksitTarih.getMonth() + i);
+        const tarihStr = taksitTarih.toISOString().split('T')[0];
 
-      const taksitBody = {
-        ...body,
-        tutar: Math.round(aylikTutar * 100) / 100,
-        vade_tarihi: tarihStr,
-        aciklama: (i === 0 ? body.aciklama : body.aciklama + ' (Taksit ' + (i + 1) + '/' + vade + ')'),
-        kredi_grup_id: krediGrupId
-      };
+        const taksitBody = {
+          ...body,
+          tutar: Math.round(aylikTutar * 100) / 100,
+          vade_tarihi: tarihStr,
+          aciklama: (i === 0 ? body.aciklama : body.aciklama + ' (Taksit ' + (i + 1) + '/' + vade + ')'),
+          kredi_grup_id: krediGrupId
+        };
 
-      const res = await fetch('/api/odemeler', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(taksitBody)
-      });
-      if (res.ok) basarili++;
+        const res = await fetch('/api/odemeler', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(taksitBody)
+        });
+        if (res.ok) basarili++;
+      }
+
+      showToast('✅ ' + basarili + '/' + vade + ' taksit kaydedildi!');
+      closeOdemeModal();
+      loadOdemeler();
+      return;
     }
-
-    showToast('✅ ' + basarili + '/' + vade + ' taksit kaydedildi!');
-    closeOdemeModal();
-    loadOdemeler();
-    return;
   }
 
   const url = id ? '/api/odemeler/' + id : '/api/odemeler';
@@ -2566,6 +2575,7 @@ async function loadOdemeler() {
         </td>
         <td>${tumuOdendi ? '✅' : '⏳'}</td>
         <td style="white-space:nowrap;">
+          <button class="btn-outline btn-sm" onclick="event.stopPropagation();openOdemeModalAraOdeme('${grupId}', '${esc(firma).replace(/'/g, "\\'")}')" title="Ara Ödeme" style="font-size:11px;">➕</button>
           ${!tumuOdendi ? `<button class="btn-outline btn-sm" onclick="event.stopPropagation();openKrediGuncelle('${grupId}', ${kalan}, ${taksitler.filter(t => t.durum !== 'Tahsil Edildi' && t.durum !== 'İptal').length})" title="Kalanı Güncelle" style="font-size:11px;">🔄</button>` : ''}
           <span style="font-size:11px;color:#64748b;">▼</span>
         </td>
@@ -2674,6 +2684,21 @@ async function loadHaftalikOdemeler() {
 function toggleWeekDetail(card) {
   const detail = card.querySelector('.week-detail');
   if (detail) detail.classList.toggle('show');
+}
+
+// ==============================
+// Ara Ödeme (kredi grubuna ekle)
+// ==============================
+function openOdemeModalAraOdeme(grupId, firma) {
+  openOdemeModal(null); // yeni ödeme modunu aç
+  // Formu ara ödeme için ayarla
+  document.getElementById('odemeEditTuru').value = 'Banka Kredisi';
+  document.querySelector('[name="odemeEditFirmaAdi"]').value = firma;
+  document.querySelector('[name="odemeEditAciklama"]').value = 'Ara Ödeme';
+  document.getElementById('krediFields').classList.add('show');
+  document.querySelector('[name="odemeEditKrediVade"]').value = '1';
+  // Gizli kredi_grup_id sakla (form submit'te kullanılacak)
+  window._araOdemeGrupId = grupId;
 }
 
 // ==============================
