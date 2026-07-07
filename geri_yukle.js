@@ -16,9 +16,12 @@ for (const g of gerceklesenRows) {
   if (siparisIds.has(g.siparis_id)) continue; // zaten var
 
   // Siparişi geri oluştur
+  // tarih alanı: created_at'in sadece tarih kısmı (YYYY-MM-DD)
+  const tarih = (g.created_at || '').substring(0, 10);
+
   const info = db.prepare(`
-    INSERT INTO siparisler (id, musteri_adi, firma_adi, urun_aciklamasi, fiyat, para_birimi, miktar, gorsel, durum, created_at, siparis_tarihi)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Tamamlandı', ?, ?)
+    INSERT INTO siparisler (id, musteri_adi, firma_adi, urun_aciklamasi, fiyat, para_birimi, miktar, gorsel, durum, tarih, created_at, siparis_tarihi)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Tamamlandı', ?, ?, ?)
   `).run(
     g.siparis_id,
     g.musteri_adi,
@@ -28,6 +31,7 @@ for (const g of gerceklesenRows) {
     g.para_birimi || 'TL',
     g.miktar || 1,
     g.gorsel || '',
+    tarih,
     g.created_at,
     g.created_at
   );
