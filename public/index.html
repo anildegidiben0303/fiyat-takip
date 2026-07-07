@@ -835,29 +835,44 @@
             <label>✂️ Kesim Adedi</label>
             <input type="number" name="gerceklesenEditKesimAdedi" value="0" min="0">
           </div>
-          <div>
+          <div class="full" style="border-top:1px solid #e2e8f0;padding-top:12px;margin-top:8px;">
             <label>📦 Yüklenen Adet</label>
-            <input type="number" name="gerceklesenEditYuklenenAdet" value="0" min="0">
+            <input type="hidden" name="gerceklesenEditYuklenenAdet" value="0">
+            <div style="font-weight:700;font-size:16px;color:#059669;margin-bottom:6px;" id="yuklenenAdetToplam">0 adet</div>
+            <div id="yuklenenAdetDetayList" style="display:flex;flex-direction:column;gap:4px;"></div>
+            <button type="button" class="btn-outline btn-sm" onclick="detayEkle('yuklenen_adet')" style="margin-top:6px;">+ Ekle</button>
           </div>
           <div>
             <label>⚠️ 2. Kalite</label>
             <input type="number" name="gerceklesenEditIkinciKalite" value="0" min="0">
           </div>
-          <div>
+          <div class="full" style="border-top:1px solid #e2e8f0;padding-top:12px;margin-top:8px;">
             <label>💰 Satış Toplamı</label>
-            <input type="number" name="gerceklesenEditSatisToplam" step="0.01" value="0" min="0">
+            <input type="hidden" name="gerceklesenEditSatisToplam" value="0">
+            <div style="font-weight:700;font-size:16px;color:#059669;margin-bottom:6px;" id="satisToplamDetayToplam">₺ 0,00</div>
+            <div id="satisToplamDetayList" style="display:flex;flex-direction:column;gap:4px;"></div>
+            <button type="button" class="btn-outline btn-sm" onclick="detayEkle('satis_toplam')" style="margin-top:6px;">+ Ekle</button>
           </div>
-          <div>
+          <div class="full" style="border-top:1px solid #e2e8f0;padding-top:12px;margin-top:8px;">
             <label>🧵 Kumaş Bedeli</label>
-            <input type="number" name="gerceklesenEditKumasBedeli" step="0.01" value="0" min="0">
+            <input type="hidden" name="gerceklesenEditKumasBedeli" value="0">
+            <div style="font-weight:700;font-size:16px;color:#059669;margin-bottom:6px;" id="kumasBedeliToplam">₺ 0,00</div>
+            <div id="kumasBedeliDetayList" style="display:flex;flex-direction:column;gap:4px;"></div>
+            <button type="button" class="btn-outline btn-sm" onclick="detayEkle('kumas_bedeli')" style="margin-top:6px;">+ Ekle</button>
           </div>
-          <div>
+          <div class="full" style="border-top:1px solid #e2e8f0;padding-top:12px;margin-top:8px;">
             <label>🧷 Aksesuar Bedeli</label>
-            <input type="number" name="gerceklesenEditAksesuarBedeli" step="0.01" value="0" min="0">
+            <input type="hidden" name="gerceklesenEditAksesuarBedeli" value="0">
+            <div style="font-weight:700;font-size:16px;color:#059669;margin-bottom:6px;" id="aksesuarBedeliToplam">₺ 0,00</div>
+            <div id="aksesuarBedeliDetayList" style="display:flex;flex-direction:column;gap:4px;"></div>
+            <button type="button" class="btn-outline btn-sm" onclick="detayEkle('aksesuar_bedeli')" style="margin-top:6px;">+ Ekle</button>
           </div>
-          <div>
+          <div class="full" style="border-top:1px solid #e2e8f0;padding-top:12px;margin-top:8px;">
             <label>👷 İşçilik Bedeli</label>
-            <input type="number" name="gerceklesenEditIscilikBedeli" step="0.01" value="0" min="0">
+            <input type="hidden" name="gerceklesenEditIscilikBedeli" value="0">
+            <div style="font-weight:700;font-size:16px;color:#059669;margin-bottom:6px;" id="iscilikBedeliToplam">₺ 0,00</div>
+            <div id="iscilikBedeliDetayList" style="display:flex;flex-direction:column;gap:4px;"></div>
+            <button type="button" class="btn-outline btn-sm" onclick="detayEkle('iscilik_bedeli')" style="margin-top:6px;">+ Ekle</button>
           </div>
           <div class="full" style="border-top:1px solid #e2e8f0;padding-top:12px;margin-top:8px;">
             <label>📥 Excel Yükle</label>
@@ -1200,6 +1215,11 @@ function closeGerceklesenEditModal() {
   gerceklesenEditModal.classList.remove('show');
   gerceklesenEditForm.reset();
   document.getElementById('gerceklesenEditExcel').value = '';
+  // Alt kalem dizilerini sıfırla
+  ['yuklenen_adet', 'satis_toplam', 'kumas_bedeli', 'aksesuar_bedeli', 'iscilik_bedeli'].forEach(function(fieldKey) {
+    gerceklesenDetaylar[fieldKey] = [];
+    detayRender(fieldKey);
+  });
 }
 
 document.getElementById('gerceklesenEditModal').addEventListener('click', function(e) {
@@ -1605,6 +1625,76 @@ function renkDetayRender() {
   `).join('');
 }
 
+// ==============================
+// Gerçekleşen sub-item detay yönetimi
+// ==============================
+const gerceklesenDetaylar = {
+  yuklenen_adet: [],
+  satis_toplam: [],
+  kumas_bedeli: [],
+  aksesuar_bedeli: [],
+  iscilik_bedeli: []
+};
+
+const detayFieldInfo = {
+  yuklenen_adet:   { containerId: 'yuklenenAdetDetayList',   toplamId: 'yuklenenAdetToplam',   inputName: 'gerceklesenEditYuklenenAdet',  suffix: ' adet', prefix: '',   isCount: true },
+  satis_toplam:    { containerId: 'satisToplamDetayList',    toplamId: 'satisToplamDetayToplam',    inputName: 'gerceklesenEditSatisToplam',    suffix: '',      prefix: '₺ ', isCount: false },
+  kumas_bedeli:    { containerId: 'kumasBedeliDetayList',    toplamId: 'kumasBedeliToplam',    inputName: 'gerceklesenEditKumasBedeli',    suffix: '',      prefix: '₺ ', isCount: false },
+  aksesuar_bedeli: { containerId: 'aksesuarBedeliDetayList', toplamId: 'aksesuarBedeliToplam', inputName: 'gerceklesenEditAksesuarBedeli', suffix: '',      prefix: '₺ ', isCount: false },
+  iscilik_bedeli:  { containerId: 'iscilikBedeliDetayList',  toplamId: 'iscilikBedeliToplam',  inputName: 'gerceklesenEditIscilikBedeli',  suffix: '',      prefix: '₺ ', isCount: false }
+};
+
+function detayEkle(fieldKey, aciklama, deger) {
+  aciklama = aciklama || '';
+  deger = (deger !== undefined && deger !== '') ? deger : '';
+  gerceklesenDetaylar[fieldKey].push({ aciklama: aciklama, deger: deger });
+  detayRender(fieldKey);
+}
+
+function detaySil(fieldKey, index) {
+  gerceklesenDetaylar[fieldKey].splice(index, 1);
+  detayRender(fieldKey);
+}
+
+function detayRender(fieldKey) {
+  var info = detayFieldInfo[fieldKey];
+  var container = document.getElementById(info.containerId);
+  if (!container) return;
+
+  var arr = gerceklesenDetaylar[fieldKey];
+  var step = info.isCount ? '1' : '0.01';
+
+  container.innerHTML = arr.map(function(r, i) {
+    return '<div style="display:flex;gap:6px;align-items:center;">' +
+      '<input type="text" value="' + esc(r.aciklama) + '" placeholder="Açıklama" onchange="gerceklesenDetaylar[\'' + fieldKey + '\'][' + i + '].aciklama = this.value" style="flex:1;">' +
+      '<input type="number" value="' + r.deger + '" placeholder="Değer" min="0" step="' + step + '" onchange="gerceklesenDetaylar[\'' + fieldKey + '\'][' + i + '].deger = this.value; detayToplamGuncelle(\'' + fieldKey + '\')" oninput="detayToplamGuncelle(\'' + fieldKey + '\')" style="width:110px;">' +
+      '<button type="button" class="btn-danger btn-sm" onclick="detaySil(\'' + fieldKey + '\',' + i + ')">✕</button>' +
+      '</div>';
+  }).join('');
+
+  detayToplamGuncelle(fieldKey);
+}
+
+function detayToplamGuncelle(fieldKey) {
+  var info = detayFieldInfo[fieldKey];
+  var arr = gerceklesenDetaylar[fieldKey];
+  var toplam = 0;
+  arr.forEach(function(r) {
+    var v = parseFloat(r.deger);
+    if (!isNaN(v)) toplam += v;
+  });
+
+  var toplamEl = document.getElementById(info.toplamId);
+  if (toplamEl) {
+    toplamEl.textContent = info.prefix + (info.isCount ? toplam : formatPara(toplam)) + info.suffix;
+  }
+
+  var inputEl = document.querySelector('[name="' + info.inputName + '"]');
+  if (inputEl) {
+    inputEl.value = toplam;
+  }
+}
+
 function renkDetayOzet(renkDetayJson) {
   try {
     const detaylar = typeof renkDetayJson === 'string' ? JSON.parse(renkDetayJson) : renkDetayJson;
@@ -1874,6 +1964,23 @@ async function gerceklesenDuzenle(id) {
     document.querySelector('[name="gerceklesenEditAksesuarBedeli"]').value = row.aksesuar_bedeli || 0;
     document.querySelector('[name="gerceklesenEditIscilikBedeli"]').value = row.iscilik_bedeli || 0;
 
+    // Alt kalem detaylarını JSON sütunlarından yükle
+    ['yuklenen_adet', 'satis_toplam', 'kumas_bedeli', 'aksesuar_bedeli', 'iscilik_bedeli'].forEach(function(fieldKey) {
+      gerceklesenDetaylar[fieldKey] = [];
+      try {
+        var colName = fieldKey + '_detay';
+        var detay = typeof row[colName] === 'string' ? JSON.parse(row[colName]) : (row[colName] || []);
+        if (Array.isArray(detay)) {
+          detay.forEach(function(d) {
+            gerceklesenDetaylar[fieldKey].push({ aciklama: d.aciklama || '', deger: d.deger || '' });
+          });
+        }
+      } catch (e) {
+        gerceklesenDetaylar[fieldKey] = [];
+      }
+      detayRender(fieldKey);
+    });
+
     gerceklesenEditModal.classList.add('show');
   } catch (e) {
     alert('Kayıt yüklenemedi: ' + e.message);
@@ -1900,6 +2007,13 @@ document.getElementById('btnGerceklesenEditSave').addEventListener('click', asyn
   formData.append('iscilik_bedeli', document.querySelector('[name="gerceklesenEditIscilikBedeli"]').value);
   formData.append('satis_toplam', document.querySelector('[name="gerceklesenEditSatisToplam"]').value);
   formData.append('durum', 'Tamamlandı');
+
+  // Alt kalem detaylarını JSON olarak gönder
+  formData.append('yuklenen_adet_detay', JSON.stringify(gerceklesenDetaylar.yuklenen_adet));
+  formData.append('satis_toplam_detay', JSON.stringify(gerceklesenDetaylar.satis_toplam));
+  formData.append('kumas_bedeli_detay', JSON.stringify(gerceklesenDetaylar.kumas_bedeli));
+  formData.append('aksesuar_bedeli_detay', JSON.stringify(gerceklesenDetaylar.aksesuar_bedeli));
+  formData.append('iscilik_bedeli_detay', JSON.stringify(gerceklesenDetaylar.iscilik_bedeli));
 
   // excel dosyası varsa ekle
   const excelFile = document.getElementById('gerceklesenEditExcel').files[0];

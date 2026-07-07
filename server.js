@@ -146,6 +146,12 @@ try { db.exec('ALTER TABLE gerceklesen ADD COLUMN ikinci_kalite INTEGER DEFAULT 
 try { db.exec('ALTER TABLE gerceklesen ADD COLUMN satis_toplam REAL DEFAULT 0'); } catch (e) { /* zaten var */ }
 try { db.exec('ALTER TABLE gerceklesen ADD COLUMN termin TEXT DEFAULT \'\''); } catch (e) { /* zaten var */ }
 try { db.exec('ALTER TABLE gerceklesen ADD COLUMN excel_dosya TEXT DEFAULT \'\''); } catch (e) { /* zaten var */ }
+// migration: sub-item detay JSON sütunları
+try { db.exec('ALTER TABLE gerceklesen ADD COLUMN yuklenen_adet_detay TEXT DEFAULT \'[]\''); } catch (e) { /* zaten var */ }
+try { db.exec('ALTER TABLE gerceklesen ADD COLUMN satis_toplam_detay TEXT DEFAULT \'[]\''); } catch (e) { /* zaten var */ }
+try { db.exec('ALTER TABLE gerceklesen ADD COLUMN kumas_bedeli_detay TEXT DEFAULT \'[]\''); } catch (e) { /* zaten var */ }
+try { db.exec('ALTER TABLE gerceklesen ADD COLUMN aksesuar_bedeli_detay TEXT DEFAULT \'[]\''); } catch (e) { /* zaten var */ }
+try { db.exec('ALTER TABLE gerceklesen ADD COLUMN iscilik_bedeli_detay TEXT DEFAULT \'[]\''); } catch (e) { /* zaten var */ }
 
 // --- ödeme planı tablosu ---
 db.exec(`
@@ -786,7 +792,8 @@ app.post('/api/gerceklesen', (req, res) => {
 // gerçekleşen güncelle (maliyet kalemleri + excel yükleme)
 app.put('/api/gerceklesen/:id', excelUpload.single('excel_dosya'), (req, res) => {
   const { musteri_adi, firma_adi, urun_aciklamasi, fiyat, para_birimi, miktar,
-          kesim_adedi, yuklenen_adet, ikinci_kalite, kumas_bedeli, aksesuar_bedeli, iscilik_bedeli, satis_toplam, termin } = req.body;
+          kesim_adedi, yuklenen_adet, ikinci_kalite, kumas_bedeli, aksesuar_bedeli, iscilik_bedeli, satis_toplam, termin,
+          yuklenen_adet_detay, satis_toplam_detay, kumas_bedeli_detay, aksesuar_bedeli_detay, iscilik_bedeli_detay } = req.body;
 
   if (!musteri_adi || !urun_aciklamasi || fiyat == null) {
     return res.status(400).json({ hata: 'Müşteri adı, ürün açıklaması ve fiyat zorunludur' });
@@ -808,7 +815,8 @@ app.put('/api/gerceklesen/:id', excelUpload.single('excel_dosya'), (req, res) =>
   db.prepare(`
     UPDATE gerceklesen
     SET musteri_adi=?, firma_adi=?, urun_aciklamasi=?, fiyat=?, para_birimi=?, miktar=?,
-        kesim_adedi=?, yuklenen_adet=?, ikinci_kalite=?, kumas_bedeli=?, aksesuar_bedeli=?, iscilik_bedeli=?, satis_toplam=?, termin=?, excel_dosya=?
+        kesim_adedi=?, yuklenen_adet=?, ikinci_kalite=?, kumas_bedeli=?, aksesuar_bedeli=?, iscilik_bedeli=?, satis_toplam=?, termin=?, excel_dosya=?,
+        yuklenen_adet_detay=?, satis_toplam_detay=?, kumas_bedeli_detay=?, aksesuar_bedeli_detay=?, iscilik_bedeli_detay=?
     WHERE id=?
   `).run(
     musteri_adi,
@@ -826,6 +834,11 @@ app.put('/api/gerceklesen/:id', excelUpload.single('excel_dosya'), (req, res) =>
     satis_toplam || 0,
     termin || '',
     excelYolu,
+    yuklenen_adet_detay || '[]',
+    satis_toplam_detay || '[]',
+    kumas_bedeli_detay || '[]',
+    aksesuar_bedeli_detay || '[]',
+    iscilik_bedeli_detay || '[]',
     req.params.id
   );
 
