@@ -4615,21 +4615,27 @@ async function loadOdemeler() {
       tahsilKart.style.display = 'none';
     }
 
-    // özet kartları
+    // özet kartları - önce haftalık veriyi çek ki Bu Hafta tutarı tutarlı olsun
+    const haftalikData = await apiFetch('/api/odemeler/haftalik').then(r => r.json());
+    const hbW = new Date(); hbW.setDate(hbW.getDate() - hbW.getDay() + 1);
+    const hbWStr = hbW.toISOString().split('T')[0];
+    const buHaftaVeri = haftalikData.haftalar.find(h => hbWStr >= h.baslangic && hbWStr <= h.bitis);
+    const buHaftaToplamH = buHaftaVeri ? buHaftaVeri.toplam_tutar : 0;
+
     const tumTahsilEdilen = rows.filter(r => r.durum === 'Tahsil Edildi').reduce((s, r) => s + r.tutar, 0);
     const odenecekRows = rows.filter(r => r.durum !== 'Tahsil Edildi' && r.durum !== 'İptal');
     const toplamOdenecek = odenecekRows.reduce((s, r) => s + r.tutar, 0);
     document.getElementById('odemeToplam').textContent = odenecekRows.length > 0 ? 'Toplam Ödenecek: ₺ ' + formatPara(toplamOdenecek) : '';
     odemeOzet.innerHTML = `
       <div class="summary-card"><div class="num">${rows.filter(r => r.durum === 'Bekliyor').length}</div><div class="lbl">Bekleyen</div></div>
-      <div class="summary-card"><div class="num" style="color:var(--warning);">₺ ${formatPara(buHaftaToplam)}</div><div class="lbl">Bu Hafta</div></div>
+      <div class="summary-card"><div class="num" style="color:var(--warning);">₺ ${formatPara(buHaftaToplamH)}</div><div class="lbl">Bu Hafta</div></div>
       <div class="summary-card"><div class="num" style="color:#ef4444;">₺ ${formatPara(gecikmisToplam)}</div><div class="lbl">Gecikmiş</div></div>
       <div class="summary-card"><div class="num" style="color:#059669;">₺ ${formatPara(bekleyenToplam)}</div><div class="lbl">Toplam Bekleyen</div></div>
       <div class="summary-card"><div class="num" style="color:#059669;">₺ ${formatPara(tumTahsilEdilen)}</div><div class="lbl">Tahsil Edilen</div></div>
     `;
 
-    // haftalık görünüm
-    await loadHaftalikOdemeler();
+    // haftalık görünüm (veriyi tekrar çekme, yukarıdaki data'yı kullan)
+    await loadHaftalikOdemeler(haftalikData);
     setTimeout(translateDOM, 100);
   } catch (e) {
     console.error('Ödeme listesi yüklenemedi:', e);
@@ -4637,9 +4643,9 @@ async function loadOdemeler() {
 }
 
 // haftalık gruplandırılmış görünüm
-async function loadHaftalikOdemeler() {
+async function loadHaftalikOdemeler(_data) {
   try {
-    const data = await apiFetch('/api/odemeler/haftalik').then(r => r.json());
+    const data = _data || await apiFetch('/api/odemeler/haftalik').then(r => r.json());
     const weekCards = document.getElementById('weekCards');
     const bugun = data.bugun;
 
