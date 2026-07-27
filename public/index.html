@@ -3749,8 +3749,7 @@ async function loadGerceklesenList(search = '') {
           <button class="btn-warning btn-sm" onclick="gerceklesenDuzenle(${row.id}, '${row._source || 'gerceklesen'}')">✏️</button>
           ${isCompleted
             ? `<button class="btn-outline btn-sm" onclick="gerceklesenDurumGuncelle(${row.id}, 'Devam Ediyor', '${row._source || 'gerceklesen'}')" title="Geri al" style="color:#2563eb;">↩️</button>`
-            : `<button class="btn-outline btn-sm" onclick="gerceklesenDurumGuncelle(${row.id}, 'Tamamlandı', '${row._source || 'gerceklesen'}')" title="Tamamlandı olarak işaretle" style="color:#059669;">✅</button>
-               <button class="btn-danger btn-sm" onclick="gerceklesenSil(${row.id}, '${row._source || 'gerceklesen'}')">🗑</button>`}
+            : `<button class="btn-danger btn-sm" onclick="gerceklesenSil(${row.id}, '${row._source || 'gerceklesen'}')">🗑</button>`}
         </td>
       `;
       return { tr, satisToplam, maliyet, kar };
