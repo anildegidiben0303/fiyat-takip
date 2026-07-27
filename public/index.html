@@ -930,6 +930,7 @@
           <tbody></tbody>
         </table>
         <div class="empty" id="odemeEmptyMsg">Henüz ödeme kaydı yok.</div>
+        <div style="margin-top:12px;text-align:right;font-weight:700;color:var(--danger);font-size:15px;" id="odemeToplam"></div>
       </div>
     </div>
 
@@ -4616,6 +4617,9 @@ async function loadOdemeler() {
 
     // özet kartları
     const tumTahsilEdilen = rows.filter(r => r.durum === 'Tahsil Edildi').reduce((s, r) => s + r.tutar, 0);
+    const odenecekRows = rows.filter(r => r.durum !== 'Tahsil Edildi' && r.durum !== 'İptal');
+    const toplamOdenecek = odenecekRows.reduce((s, r) => s + r.tutar, 0);
+    document.getElementById('odemeToplam').textContent = odenecekRows.length > 0 ? 'Toplam Ödenecek: ₺ ' + formatPara(toplamOdenecek) : '';
     odemeOzet.innerHTML = `
       <div class="summary-card"><div class="num">${rows.filter(r => r.durum === 'Bekliyor').length}</div><div class="lbl">Bekleyen</div></div>
       <div class="summary-card"><div class="num" style="color:var(--warning);">₺ ${formatPara(buHaftaToplam)}</div><div class="lbl">Bu Hafta</div></div>
