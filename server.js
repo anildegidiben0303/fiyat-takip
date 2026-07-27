@@ -219,7 +219,7 @@ db.exec(`
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     musteri_adi TEXT NOT NULL,
     firma_adi TEXT DEFAULT '',
-    odeme_turu TEXT NOT NULL DEFAULT 'Havale/EFT',
+    odeme_turu TEXT NOT NULL DEFAULT 'Rotatif Kredi',
     tutar REAL NOT NULL,
     para_birimi TEXT DEFAULT 'TL',
     vade_tarihi TEXT NOT NULL,
@@ -1613,7 +1613,7 @@ app.post('/api/odemeler', (req, res) => {
   const info = stmt.run(
     '',
     firma_adi || '',
-    odeme_turu || 'Havale/EFT',
+    odeme_turu || 'Rotatif Kredi',
     tutar,
     para_birimi || 'TL',
     vade_tarihi,
@@ -1644,7 +1644,7 @@ app.put('/api/odemeler/:id', (req, res) => {
     WHERE id=?
   `).run(
     firma_adi || '',
-    odeme_turu || 'Havale/EFT',
+    odeme_turu || 'Rotatif Kredi',
     tutar,
     para_birimi || 'TL',
     vade_tarihi,
