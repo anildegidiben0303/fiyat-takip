@@ -500,6 +500,8 @@
 
   .cek-fields { display: none; }
   .cek-fields.show { display: contents; }
+  .kredi-fields { display: none; }
+  .kredi-fields.show { display: contents; }
 
   .week-detail { display: none; margin-top: 12px; }
   .week-detail.show { display: block; }
@@ -1422,7 +1424,7 @@
 
 <!-- aksesuar takip modalı -->
 <div class="modal-overlay" id="aksesuarModal">
-  <div class="modal" style="max-width:700px;">
+  <div class="modal" style="max-width:850px;">
     <div class="modal-header">
       <h3>📋 Aksesuar Takip</h3>
       <button class="close-modal" onclick="closeAksesuarModal()">&times;</button>
@@ -1436,7 +1438,8 @@
           <thead>
             <tr>
               <th>Aksesuar</th>
-              <th style="width:60px;">Sip.Adet</th>
+              <th style="width:60px;">Sip.Miktar</th>
+              <th style="width:80px;">Birim Fiyat</th>
               <th style="width:70px;">Gelen</th>
               <th>Not</th>
               <th style="width:30px;"></th>
@@ -1676,8 +1679,8 @@
       'Maliyet Top.': 'gerceklesen.costTotalCol', 'Kayıt': 'gerceklesen.recordCol',
       'Yüklenen': 'gerceklesen.colYuklenen',
       // Aksesuar
-      'Aksesuar': 'aksesuar.colName', 'Sip.Adet': 'aksesuar.colSiparisAdet',
-      'Gelen': 'aksesuar.colGelenAdet',
+      'Aksesuar': 'aksesuar.colName', 'Sip.Miktar': 'aksesuar.colSiparisAdet',
+      'Birim Fiyat': 'aksesuar.colBirimFiyat', 'Gelen': 'aksesuar.colGelenAdet',
       // Kullanıcı
       'Kullanıcı': 'kullanicilar.colUser', 'Rol': 'kullanicilar.colRol',
       // Buton metinleri (sadece metin içeriğini değiştir, ikonları koru)
@@ -2279,6 +2282,13 @@ async function loadSiparisList(search = '') {
     siparisEmptyMsg.style.display = aktifSiparisRows.length ? 'none' : 'block';
     document.getElementById('siparisCount').textContent = aktifSiparisRows.length;
 
+    // termin bilgisine göre sırala (yakından uzağa, boş terminler sona)
+    aktifSiparisRows.sort((a, b) => {
+      const aTermin = a.termin || '9999';
+      const bTermin = b.termin || '9999';
+      return aTermin.localeCompare(bTermin);
+    });
+
     // özet kartları
     let toplamTutar = 0, toplamAdet = 0;
     const bugun = new Date().toISOString().split('T')[0];
@@ -2317,8 +2327,8 @@ async function loadSiparisList(search = '') {
           toplamTutar += subToplam;
           toplamAdet += subAdet;
 
-          // her renk satırı için kendi terminini göster
-          const subTermin = d.termin || '';
+          // her renk satırı için kendi terminini göster (yoksa ana termin)
+          const subTermin = d.termin || row.termin || '';
           const subTerminGecmis = subTermin && subTermin < bugun;
           let subTerminHtml = '';
           if (subTermin) {
@@ -2506,6 +2516,14 @@ async function loadSiparisList(search = '') {
     const tSipTbody = document.querySelector('#tamamlananSiparisTable tbody');
     const tSipKart = document.getElementById('tamamlananSiparisKart');
     tSipTbody.innerHTML = '';
+
+    // tamamlananları da termine göre sırala (yakından uzağa, boş terminler sona)
+    tamamlananSiparisRows.sort((a, b) => {
+      const aTermin = a.termin || '9999';
+      const bTermin = b.termin || '9999';
+      return aTermin.localeCompare(bTermin);
+    });
+
     let tTutar = 0, tAdet = 0;
     tamamlananSiparisRows.forEach(row => {
       const para = paraIsareti(row.para_birimi);
@@ -2935,13 +2953,14 @@ async function loadAksesuarList(siparisId) {
       const tr = document.createElement('tr');
       tr.style.background = '#f8fafc';
       tr.innerHTML = `
-        <td><input type="text" value="${escAttr(a.aksesuar_adi)}" data-id="${a.id}" data-field="aksesuar_adi" style="width:100%;border:1px solid transparent;padding:3px 5px;font-size:13px;border-radius:4px;" onfocus="this.style.border='1px solid #3b82f6'" onblur="this.style.border='1px solid transparent';aksesuarAlanGuncelle(${a.id},'aksesuar_adi',this.value)"></td>
-        <td><input type="number" value="${a.siparis_adet || 0}" data-id="${a.id}" data-field="siparis_adet" style="width:100%;border:1px solid transparent;padding:3px 5px;font-size:13px;border-radius:4px;text-align:center;" onfocus="this.style.border='1px solid #3b82f6'" onblur="this.style.border='1px solid transparent';aksesuarAlanGuncelle(${a.id},'siparis_adet',this.value)"></td>
-        <td style="text-align:center;font-weight:700;color:#059669;">${a.gelen_adet || 0}</td>
-        <td><input type="text" value="${escAttr(a.notlar || '')}" data-id="${a.id}" data-field="notlar" placeholder="-" style="width:100%;border:1px solid transparent;padding:3px 5px;font-size:13px;border-radius:4px;" onfocus="this.style.border='1px solid #3b82f6'" onblur="this.style.border='1px solid transparent';aksesuarAlanGuncelle(${a.id},'notlar',this.value)"></td>
+        <td><input type="text" value="${escAttr(a.aksesuar_adi)}" data-id="${a.id}" data-field="aksesuar_adi" style="width:100%;border:1px solid transparent;padding:7px 9px;font-size:15px;font-weight:600;border-radius:4px;" onfocus="this.style.border='1px solid #3b82f6'" onblur="this.style.border='1px solid transparent';aksesuarAlanGuncelle(${a.id},'aksesuar_adi',this.value)"></td>
+        <td><input type="number" value="${a.siparis_adet || 0}" data-id="${a.id}" data-field="siparis_adet" style="width:100%;border:1px solid transparent;padding:7px 9px;font-size:15px;font-weight:600;border-radius:4px;text-align:center;" onfocus="this.style.border='1px solid #3b82f6'" onblur="this.style.border='1px solid transparent';aksesuarAlanGuncelle(${a.id},'siparis_adet',this.value)"></td>
+        <td><input type="number" value="${a.birim_fiyat || 0}" step="0.01" data-id="${a.id}" data-field="birim_fiyat" style="width:100%;border:1px solid transparent;padding:7px 9px;font-size:15px;font-weight:600;border-radius:4px;text-align:center;" onfocus="this.style.border='1px solid #3b82f6'" onblur="this.style.border='1px solid transparent';aksesuarAlanGuncelle(${a.id},'birim_fiyat',this.value)"></td>
+        <td style="text-align:center;font-weight:700;color:#059669;font-size:16px;">${a.gelen_adet || 0}</td>
+        <td><input type="text" value="${escAttr(a.notlar || '')}" data-id="${a.id}" data-field="notlar" placeholder="-" style="width:100%;border:1px solid transparent;padding:7px 9px;font-size:15px;font-weight:600;border-radius:4px;" onfocus="this.style.border='1px solid #3b82f6'" onblur="this.style.border='1px solid transparent';aksesuarAlanGuncelle(${a.id},'notlar',this.value)"></td>
         <td style="white-space:nowrap;">
-          <button class="btn-outline btn-sm" onclick="aksesuarSevkiyatEkle(${a.id})" title="Sevkiyat Ekle" style="font-size:11px;padding:2px 6px;">+</button>
-          <button class="btn-danger btn-sm" onclick="aksesuarSil(${a.id})" style="font-size:11px;padding:2px 6px;" title="Sil">🗑</button>
+          <button class="btn-outline btn-sm" onclick="aksesuarSevkiyatEkle(${a.id})" title="Sevkiyat Ekle" style="font-size:12px;padding:4px 10px;">+</button>
+          <button class="btn-danger btn-sm" onclick="aksesuarSil(${a.id})" style="font-size:12px;padding:4px 10px;" title="Sil">🗑</button>
         </td>
       `;
       tbody.appendChild(tr);
@@ -2952,8 +2971,8 @@ async function loadAksesuarList(siparisId) {
         const headSub = document.createElement('tr');
         headSub.style.background = '#fff';
         headSub.innerHTML = `
-          <td style="font-size:10px;color:#64748b;font-weight:600;padding:2px 5px;">Açıklama</td>
-          <td style="font-size:10px;color:#64748b;font-weight:600;padding:2px 5px;text-align:center;">Adet</td>
+          <td colspan="3" style="font-size:10px;color:#64748b;font-weight:600;padding:2px 5px;">Açıklama</td>
+          <td style="font-size:10px;color:#64748b;font-weight:600;padding:2px 5px;text-align:center;">Miktar</td>
           <td style="font-size:10px;color:#64748b;font-weight:600;padding:2px 5px;">Fatura No</td>
           <td style="font-size:10px;color:#64748b;font-weight:600;padding:2px 5px;text-align:center;">₺ Tutar</td>
           <td></td>
@@ -2963,12 +2982,12 @@ async function loadAksesuarList(siparisId) {
       detaylar.forEach(function(d, di) {
         const sub = document.createElement('tr');
         sub.setAttribute('data-aksesuar-id', a.id);
-        sub.style.background = '#fff';
+        sub.style.background = '#f0fdf4';
         sub.innerHTML = `
-          <td><input type="text" value="${escAttr(d.aciklama || '')}" style="width:100%;border:1px solid #e2e8f0;padding:3px 5px;font-size:12px;border-radius:4px;" onchange="aksesuarSevkiyatGuncelle(${a.id})" onfocus="this.style.border='1px solid #3b82f6'" onblur="this.style.border='1px solid #e2e8f0'"></td>
-          <td><input type="number" value="${d.adet || 0}" style="width:100%;border:1px solid #e2e8f0;padding:3px 5px;font-size:12px;border-radius:4px;text-align:center;" onchange="aksesuarSevkiyatGuncelle(${a.id})" onfocus="this.style.border='1px solid #3b82f6'" onblur="this.style.border='1px solid #e2e8f0'"></td>
-          <td><input type="text" value="${escAttr(d.fatura || '')}" style="width:100%;border:1px solid #e2e8f0;padding:3px 5px;font-size:12px;border-radius:4px;" onchange="aksesuarSevkiyatGuncelle(${a.id})" onfocus="this.style.border='1px solid #3b82f6'" onblur="this.style.border='1px solid #e2e8f0'"></td>
-          <td><input type="number" value="${d.tutar || 0}" step="0.01" style="width:100%;border:1px solid #e2e8f0;padding:3px 5px;font-size:12px;border-radius:4px;text-align:center;" onchange="aksesuarSevkiyatGuncelle(${a.id})" onfocus="this.style.border='1px solid #3b82f6'" onblur="this.style.border='1px solid #e2e8f0'"></td>
+          <td colspan="3"><input type="text" value="${escAttr(d.aciklama || '')}" style="width:100%;border:1px solid #bbf7d0;padding:3px 5px;font-size:12px;border-radius:4px;background:#f0fdf4;" onchange="aksesuarSevkiyatGuncelle(${a.id})" onfocus="this.style.border='1px solid #3b82f6'" onblur="this.style.border='1px solid #bbf7d0'"></td>
+          <td><input type="number" value="${d.adet || 0}" style="width:100%;border:1px solid #bbf7d0;padding:3px 5px;font-size:12px;border-radius:4px;text-align:center;background:#f0fdf4;" onchange="aksesuarSevkiyatGuncelle(${a.id})" onfocus="this.style.border='1px solid #3b82f6'" onblur="this.style.border='1px solid #bbf7d0'"></td>
+          <td><input type="text" value="${escAttr(d.fatura || '')}" style="width:100%;border:1px solid #bbf7d0;padding:3px 5px;font-size:12px;border-radius:4px;background:#f0fdf4;" onchange="aksesuarSevkiyatGuncelle(${a.id})" onfocus="this.style.border='1px solid #3b82f6'" onblur="this.style.border='1px solid #bbf7d0'"></td>
+          <td><input type="number" value="${d.tutar || 0}" step="0.01" style="width:100%;border:1px solid #bbf7d0;padding:3px 5px;font-size:12px;border-radius:4px;text-align:center;background:#f0fdf4;" onchange="aksesuarSevkiyatGuncelle(${a.id})" onfocus="this.style.border='1px solid #3b82f6'" onblur="this.style.border='1px solid #bbf7d0'"></td>
           <td><button class="btn-danger btn-sm" onclick="aksesuarSevkiyatSil(${a.id}, ${di})" style="font-size:11px;padding:2px 6px;" title="Sil">✕</button></td>
         `;
         tbody.appendChild(sub);
@@ -2987,10 +3006,11 @@ async function aksesuarAlanGuncelle(id, field, value) {
     const body = {
       aksesuar_adi: a.aksesuar_adi,
       siparis_adet: a.siparis_adet || 0,
+      birim_fiyat: a.birim_fiyat || 0,
       notlar: a.notlar || '',
       gelen_detay: a.gelen_detay || '[]'
     };
-    body[field] = field.includes('adet') ? (parseInt(value) || 0) : value;
+    body[field] = field.includes('adet') ? (parseInt(value) || 0) : (field === 'birim_fiyat' ? (parseFloat(value) || 0) : value);
     await apiFetch('/api/aksesuar/' + id, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -3006,7 +3026,7 @@ async function aksesuarYeniEkle() {
     await apiFetch('/api/siparisler/' + sipId + '/aksesuar', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ aksesuar_adi: 'Yeni', siparis_adet: 0, gelen_adet: 0, notlar: '', fatura: '', gelen_detay: '[]' })
+      body: JSON.stringify({ aksesuar_adi: 'Yeni', siparis_adet: 0, gelen_adet: 0, birim_fiyat: 0, notlar: '', fatura: '', gelen_detay: '[]' })
     });
     await loadAksesuarList(sipId);
   } catch(e) { alert('Eklenemedi: ' + e.message); }
@@ -3064,6 +3084,7 @@ async function aksesuarSevkiyatKaydet(id, detaylar) {
     body: JSON.stringify({
       aksesuar_adi: a.aksesuar_adi,
       siparis_adet: a.siparis_adet || 0,
+      birim_fiyat: a.birim_fiyat || 0,
       notlar: a.notlar || '',
       gelen_detay: JSON.stringify(detaylar)
     })
@@ -3765,9 +3786,12 @@ async function loadGerceklesenList(search = '') {
     // Tamamlanan gerçekleşen kartını gizle (artık ayrı bölüm yok)
     document.getElementById('tamamlananGerceklesenKart').style.display = 'none';
 
-    // --- yıllık rapor (tüm satırlar) ---
+    // sadece tamamlananlar (yıllık ve aylık rapor için)
+    const tamamlananRows = rows.filter(r => (r.durum || 'Devam Ediyor') === 'Tamamlandı');
+
+    // --- yıllık rapor (sadece tamamlananlar) ---
     const yillar = {};
-    rows.forEach(row => {
+    tamamlananRows.forEach(row => {
       const satis = row.satis_toplam || 0;
       const yuklenen = row.yuklenen_adet || 0;
       const maliyet = (row.kumas_bedeli || 0) + (row.aksesuar_bedeli || 0) + (row.iscilik_bedeli || 0) + (row.baski_nakis_yikama || 0);
@@ -3827,11 +3851,10 @@ async function loadGerceklesenList(search = '') {
       yillikTbody.appendChild(tr);
     }
 
-    document.getElementById('yillikRaporCard').style.display = rows.length > 0 ? 'block' : 'none';
+    document.getElementById('yillikRaporCard').style.display = tamamlananRows.length > 0 ? 'block' : 'none';
 
     // --- aylık rapor (sadece tamamlananlar) ---
     const aylar = {};
-    const tamamlananRows = rows.filter(r => (r.durum || 'Devam Ediyor') === 'Tamamlandı');
     tamamlananRows.forEach(row => {
       const satis = row.satis_toplam || 0;
       const yuklenen = row.yuklenen_adet || 0;
@@ -4292,15 +4315,19 @@ let odemeDuzenlemeId = null;
 function openOdemeModal(id) {
   odemeDuzenlemeId = id || null;
   document.getElementById('odemeModalTitle').textContent = id ? '✏️ Ödeme Düzenle' : '💵 Yeni Ödeme';
+  // önce formu HTML varsayılanlarına sıfırla
+  odemeEditForm.reset();
+  // sonra özel varsayılanları ata (reset'in üzerine yaz)
   document.getElementById('odemeEditTuru').value = 'Rotatif Kredi';
   document.getElementById('cekFields').classList.remove('show');
   document.getElementById('krediFields').classList.remove('show');
   document.querySelector('[name="odemeEditKrediVade"]').value = '1';
-  odemeEditForm.reset();
   document.querySelector('[name="odemeEditId"]').value = '';
   document.querySelector('[name="odemeEditDurum"]').value = 'Bekliyor';
   document.querySelector('[name="odemeEditParaBirimi"]').value = 'TL';
   document.querySelector('[name="odemeEditVade"]').value = new Date().toISOString().split('T')[0];
+  // ara ödeme grup id'sini temizle
+  window._araOdemeGrupId = null;
 
   if (id) {
     apiFetch('/api/odemeler/' + id).then(r => r.json()).then(row => {
@@ -4326,6 +4353,7 @@ function closeOdemeModal() {
   odemeEditModal.classList.remove('show');
   document.getElementById('cekFields').classList.remove('show');
   document.getElementById('krediFields').classList.remove('show');
+  window._araOdemeGrupId = null;
 }
 
 // ödeme türü değişince çek/kredi alanlarını göster/gizle

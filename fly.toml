@@ -3,7 +3,7 @@
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
-app = 'fiyat-takip'
+app = 'esamoda'
 primary_region = 'ams'
 
 [env]
@@ -11,7 +11,7 @@ primary_region = 'ams'
   PORT = '3000'
 
 [[mounts]]
-  source = 'fiyat_data'
+  source = 'esamoda_data'
   destination = '/app/data'
 
 [http_service]

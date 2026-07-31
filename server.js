@@ -253,6 +253,7 @@ db.exec(`
 
 // migration: aksesuar çoklu sevkiyat detay
 try { db.exec('ALTER TABLE aksesuar_takip ADD COLUMN gelen_detay TEXT DEFAULT \'[]\''); } catch (e) { /* zaten var */ }
+try { db.exec('ALTER TABLE aksesuar_takip ADD COLUMN birim_fiyat REAL DEFAULT 0'); } catch (e) { /* zaten var */ }
 
 // --- kumaş takip tablosu ---
 db.exec(`
@@ -1130,13 +1131,13 @@ app.get('/api/siparisler/:id/aksesuar', (req, res) => {
 
 // yeni aksesuar ekle
 app.post('/api/siparisler/:id/aksesuar', (req, res) => {
-  const { aksesuar_adi, siparis_adet, gelen_adet, notlar, fatura } = req.body;
+  const { aksesuar_adi, siparis_adet, gelen_adet, birim_fiyat, notlar, fatura } = req.body;
   if (!aksesuar_adi) return res.status(400).json({ hata: t(getLang(req), 'aksesuarRequired') });
 
   const info = db.prepare(`
-    INSERT INTO aksesuar_takip (siparis_id, aksesuar_adi, siparis_adet, gelen_adet, notlar, fatura, gelen_detay)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run(req.params.id, aksesuar_adi, siparis_adet || 0, gelen_adet || 0, notlar || '', fatura || '', '[]');
+    INSERT INTO aksesuar_takip (siparis_id, aksesuar_adi, siparis_adet, gelen_adet, birim_fiyat, notlar, fatura, gelen_detay)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(req.params.id, aksesuar_adi, siparis_adet || 0, gelen_adet || 0, birim_fiyat || 0, notlar || '', fatura || '', '[]');
 
   res.status(201).json({ id: info.lastInsertRowid, mesaj: t(getLang(req), 'aksesuarCreated') });
 });
@@ -1150,7 +1151,7 @@ app.get('/api/aksesuar/:id', (req, res) => {
 
 // aksesuar güncelle
 app.put('/api/aksesuar/:id', (req, res) => {
-  const { aksesuar_adi, siparis_adet, notlar, gelen_detay } = req.body;
+  const { aksesuar_adi, siparis_adet, birim_fiyat, notlar, gelen_detay } = req.body;
   if (!aksesuar_adi) return res.status(400).json({ hata: t(getLang(req), 'aksesuarRequired') });
 
   const eski = db.prepare('SELECT * FROM aksesuar_takip WHERE id = ?').get(req.params.id);
@@ -1168,8 +1169,8 @@ app.put('/api/aksesuar/:id', (req, res) => {
   } catch(e) { detayJson = gelen_detay || '[]'; }
 
   db.prepare(`
-    UPDATE aksesuar_takip SET aksesuar_adi=?, siparis_adet=?, gelen_adet=?, notlar=?, gelen_detay=? WHERE id=?
-  `).run(aksesuar_adi, siparis_adet || 0, gelenAdet, notlar || '', detayJson, req.params.id);
+    UPDATE aksesuar_takip SET aksesuar_adi=?, siparis_adet=?, gelen_adet=?, birim_fiyat=?, notlar=?, gelen_detay=? WHERE id=?
+  `).run(aksesuar_adi, siparis_adet || 0, gelenAdet, birim_fiyat !== undefined ? birim_fiyat : (eski.birim_fiyat || 0), notlar || '', detayJson, req.params.id);
 
   res.json({ mesaj: t(getLang(req), 'aksesuarUpdated'), gelen_adet: gelenAdet });
 });
