@@ -479,7 +479,9 @@
   .type-senet { background: #fee2e2; color: #991b1b; }
   .type-fatura { background: #fce7f3; color: #9d174d; }
 .type-banka-kredisi { background: #e0e7ff; color: #3730a3; }
+.type-spot-kredi { background: #ccfbf1; color: #115e59; }
 .type-rotatif-kredi { background: #fce7f3; color: #9d174d; }
+.type-kredi-karti { background: #fef3c7; color: #92400e; }
 .kredi-group-row { background: #eef2ff; cursor: pointer; transition: background 0.15s; }
 .kredi-group-row:hover { background: #e0e7ff; }
 .kredi-group-row td { font-weight: 700; border-bottom: 2px solid #c7d2fe; }
@@ -911,6 +913,7 @@
           <option value="Çek">Çek</option>
           <option value="Kredi Kartı">Kredi Kartı</option>
           <option value="Banka Kredisi">Banka Kredisi</option>
+          <option value="Spot Kredi">Spot Kredi</option>
           <option value="Rotatif Kredi">Rotatif Kredi</option>
         </select>
         <button class="btn-primary btn-sm" id="btnOdemeEkle">+ Yeni Ödeme</button>
@@ -1329,6 +1332,7 @@
               <option value="Çek">Çek</option>
               <option value="Kredi Kartı">Kredi Kartı</option>
               <option value="Banka Kredisi">Banka Kredisi</option>
+              <option value="Spot Kredi">Spot Kredi</option>
               <option value="Rotatif Kredi">Rotatif Kredi</option>
             </select>
           </div>
@@ -1725,7 +1729,7 @@
       // Ödeme türleri (option ve badge)
       'Nakit': 'odemeler.typeNakit', 'Çek': 'odemeler.typeCek',
       'Kredi Kartı': 'odemeler.typeKrediKarti',
-      'Banka Kredisi': 'odemeler.typeBankaKredisi', 'Rotatif Kredi': 'odemeler.typeRotatifKredi',
+      'Banka Kredisi': 'odemeler.typeBankaKredisi', 'Spot Kredi': 'odemeler.typeSpotKredi', 'Rotatif Kredi': 'odemeler.typeRotatifKredi',
       // Haftalık etiketler
       'Gecikmiş': 'odemeler.weekOverdue', 'Bu Hafta': 'odemeler.weekThisWeek',
       'Geçti': 'odemeler.weekPast',
