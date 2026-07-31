@@ -4326,8 +4326,9 @@ function openOdemeModal(id) {
   document.querySelector('[name="odemeEditDurum"]').value = 'Bekliyor';
   document.querySelector('[name="odemeEditParaBirimi"]').value = 'TL';
   document.querySelector('[name="odemeEditVade"]').value = new Date().toISOString().split('T')[0];
-  // ara ödeme grup id'sini temizle
+  // ara ödeme grup id'sini temizle, düzenleme için kredi_grup_id'yi sakla
   window._araOdemeGrupId = null;
+  window._odemeEditKrediGrupId = '';
 
   if (id) {
     apiFetch('/api/odemeler/' + id).then(r => r.json()).then(row => {
@@ -4342,7 +4343,10 @@ function openOdemeModal(id) {
       document.querySelector('[name="odemeEditCekNo"]').value = row.cek_no || '';
       document.querySelector('[name="odemeEditBanka"]').value = row.banka || '';
       document.querySelector('[name="odemeEditCekSahibi"]').value = row.cek_sahibi || '';
+      // mevcut kredi_grup_id'yi sakla (düzenlemede korunması için)
+      window._odemeEditKrediGrupId = row.kredi_grup_id || '';
       if (row.odeme_turu === 'Çek') document.getElementById('cekFields').classList.add('show');
+      if (row.odeme_turu === 'Banka Kredisi') document.getElementById('krediFields').classList.add('show');
     }).catch(e => alert('Kayıt yüklenemedi: ' + e.message));
   }
 
@@ -4354,6 +4358,7 @@ function closeOdemeModal() {
   document.getElementById('cekFields').classList.remove('show');
   document.getElementById('krediFields').classList.remove('show');
   window._araOdemeGrupId = null;
+  window._odemeEditKrediGrupId = '';
 }
 
 // ödeme türü değişince çek/kredi alanlarını göster/gizle
@@ -4381,7 +4386,7 @@ document.getElementById('btnOdemeEditSave').addEventListener('click', async () =
     cek_no: document.querySelector('[name="odemeEditCekNo"]').value.trim(),
     banka: document.querySelector('[name="odemeEditBanka"]').value.trim(),
     cek_sahibi: document.querySelector('[name="odemeEditCekSahibi"]').value.trim(),
-    kredi_grup_id: window._araOdemeGrupId || ''
+    kredi_grup_id: window._araOdemeGrupId || window._odemeEditKrediGrupId || ''
   };
 
   if (!body.tutar || !body.vade_tarihi) {
