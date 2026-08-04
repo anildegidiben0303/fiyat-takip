@@ -39,7 +39,7 @@ function getSession(token) {
 }
 
 function authMiddleware(req, res, next) {
-  const token = req.headers['x-auth-token'] || '';
+  const token = req.headers['x-auth-token'] || req.query.token || '';
   const user = getSession(token);
   if (user) { req.user = user; return next(); }
   res.status(401).json({ hata: t(getLang(req), 'sessionInvalid') });
@@ -47,7 +47,7 @@ function authMiddleware(req, res, next) {
 
 function requirePermission(permission) {
   return (req, res, next) => {
-    const token = req.headers['x-auth-token'] || '';
+    const token = req.headers['x-auth-token'] || req.query.token || '';
     const user = getSession(token);
     if (!user) return res.status(401).json({ hata: t(getLang(req), 'sessionInvalid') });
     if (!user.permissions || !user.permissions.includes(permission)) {

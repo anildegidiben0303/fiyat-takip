@@ -3176,6 +3176,7 @@ async function loadKumasList(siparisId) {
         '<td style="text-align:center;font-weight:700;color:#d97706;font-size:12px;">' + formatPara(k.kesim_yuzdesi || 0) + '%</td>' +
         '<td style="text-align:center;font-weight:700;color:#7c3aed;font-size:12px;white-space:nowrap;" title="Toplam Gelen / Kesim Adedi">' + formatKumas(k.gerceklesen_birim || 0) + '</td>' +
         '<td style="white-space:nowrap;">' +
+          '<button class="btn-outline btn-sm" onclick="kumasSiparisFormu(' + k.id + ')" title="Sipariş Formu İndir" style="font-size:11px;padding:2px 6px;background:#1e40af;color:#fff;border-color:#1e40af;">📋</button> ' +
           '<button class="btn-outline btn-sm" onclick="kumasSevkiyatEkle(' + k.id + ')" title="Sevkiyat Ekle" style="font-size:11px;padding:2px 6px;">+</button> ' +
           '<button class="btn-danger btn-sm" onclick="kumasSil(' + k.id + ')" style="font-size:11px;padding:2px 6px;" title="Sil">🗑</button>' +
         '</td>';
@@ -3339,6 +3340,13 @@ async function kumasSevkiyatKaydet(id, detaylar) {
   });
   var sipId = document.getElementById('kumasSiparisId').value;
   await loadKumasList(sipId);
+}
+
+function kumasSiparisFormu(id) {
+  var token = localStorage.getItem('token');
+  if (!token) { showToast('❌ Oturum bulunamadı'); return; }
+  window.open('/api/kumas/' + id + '/siparis-formu?token=' + encodeURIComponent(token), '_blank');
+  showToast('📋 Sipariş formu indiriliyor...');
 }
 
 // ==============================
