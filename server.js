@@ -453,7 +453,13 @@ const swaggerDoc = {
       get: { tags: ['Fiyatlar'], summary: 'Fiyatlarda arama', parameters: [{ name: 'q', in: 'query', required: true, schema: { type: 'string' } }], responses: { '200': { description: 'Sonuçlar' } } }
     },
     '/api/yedekle': {
-      get: { tags: ['Sistem'], summary: 'Veritabanını yedekle (tar.gz)', responses: { '200': { description: 'Yedek dosyası' } } }
+      get: { tags: ['Sistem'], summary: 'Tam yedek (DB + uploads + bant) tar.gz', responses: { '200': { description: 'Yedek dosyası (tar.gz)' } } }
+    },
+    '/api/yedekle/db': {
+      get: { tags: ['Sistem'], summary: 'Sadece veritabanı dosyası (.db)', responses: { '200': { description: 'SQLite veritabanı dosyası' } } }
+    },
+    '/api/yedekle/excel': {
+      get: { tags: ['Sistem'], summary: 'Tüm tablolar Excel formatında yedek', responses: { '200': { description: 'Excel yedek dosyası (.xlsx)' } } }
     }
   }
 };
@@ -1727,14 +1733,88 @@ db.prepare("UPDATE kullanicilar SET permissions = ? WHERE username = 'admin'")
   .run(JSON.stringify(ROLE_PERMISSIONS.admin));
 
 // --- yedekleme ---
+
+// Tam yedek: veritabanı + uploads + bant verileri (tar.gz)
 app.get('/api/yedekle', (req, res) => {
   const tarih = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
   res.setHeader('Content-Type', 'application/gzip');
-  res.setHeader('Content-Disposition', `attachment; filename="fiyat-takip-yedek-${tarih}.tar.gz"`);
-  const tar = spawn('tar', ['-czf', '-', '-C', '/app/data', '.']);
+  res.setHeader('Content-Disposition', `attachment; filename="esamoda-tam-yedek-${tarih}.tar.gz"`);
+
+  // Veritabanını yedekle (WAL checkpoint)
+  db.pragma('wal_checkpoint(TRUNCATE)');
+
+  const tar = spawn('tar', ['-czf', '-', '-C', dataDir, '.']);
   tar.stdout.pipe(res);
   tar.stderr.on('data', () => {});
-  tar.on('error', () => res.status(500).json({ hata: t(getLang(req), 'backupFailed') }));
+  tar.on('error', () => {
+    if (!res.headersSent) res.status(500).json({ hata: t(getLang(req), 'backupFailed') });
+  });
+});
+
+// Sadece veritabanı dosyası (.db)
+app.get('/api/yedekle/db', (req, res) => {
+  const tarih = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
+  // WAL checkpoint - tüm değişiklikleri ana db dosyasına yaz
+  db.pragma('wal_checkpoint(TRUNCATE)');
+  const dbFile = path.join(dataDir, 'fiyatlar.db');
+  if (!fs.existsSync(dbFile)) return res.status(404).json({ hata: t(getLang(req), 'fiyatNotFound') });
+  res.download(dbFile, `fiyatlar-${tarih}.db`);
+});
+
+// Excel yedeği (tüm tablolar tek Excel'de)
+app.get('/api/yedekle/excel', async (req, res) => {
+  try {
+    const tarih = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
+    const workbook = new ExcelJS.Workbook();
+
+    const headerStyle = { font: { bold: true, color: { argb: 'FFFFFFFF' } }, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2563EB' } }, alignment: { horizontal: 'center', vertical: 'middle' } };
+
+    const tablolar = [
+      { name: 'Fiyatlar', query: 'SELECT * FROM fiyatlar ORDER BY created_at DESC' },
+      { name: 'Siparişler', query: 'SELECT * FROM siparisler ORDER BY created_at DESC' },
+      { name: 'Gerçekleşen', query: 'SELECT * FROM gerceklesen ORDER BY created_at DESC' },
+      { name: 'Ödemeler', query: 'SELECT * FROM odemeler ORDER BY created_at DESC' },
+      { name: 'Aksesuar Takip', query: 'SELECT * FROM aksesuar_takip ORDER BY siparis_id, created_at ASC' },
+      { name: 'Kumaş Takip', query: 'SELECT * FROM kumas_takip ORDER BY siparis_id, created_at ASC' },
+      { name: 'Kullanıcılar', query: 'SELECT id, username, rol, permissions, created_at FROM kullanicilar ORDER BY id ASC' },
+      { name: 'Oturumlar', query: 'SELECT * FROM sessions ORDER BY created_at DESC' },
+    ];
+
+    for (const tablo of tablolar) {
+      const ws = workbook.addWorksheet(tablo.name);
+      const rows = db.prepare(tablo.query).all();
+      if (rows.length === 0) { ws.addRow([`${tablo.name} tablosunda kayıt yok`]); continue; }
+
+      const cols = Object.keys(rows[0]);
+      // Başlık satırı
+      const baslikRow = ws.addRow(cols);
+      baslikRow.font = headerStyle.font;
+      baslikRow.fill = headerStyle.fill;
+      baslikRow.alignment = headerStyle.alignment;
+
+      // Veri satırları
+      for (const row of rows) {
+        ws.addRow(cols.map(c => row[c] !== null && row[c] !== undefined ? row[c] : ''));
+      }
+
+      // Sütun genişliklerini otomatik ayarla
+      cols.forEach((c, i) => {
+        const maxLen = Math.max(c.length, ...rows.slice(0, 100).map(r => String(r[c] || '').length));
+        ws.getColumn(i + 1).width = Math.min(maxLen + 4, 40);
+      });
+
+      ws.views = [{ state: 'frozen', ySplit: 1 }];
+      const sonKolon = String.fromCharCode(64 + Math.min(cols.length, 26));
+      ws.autoFilter = `A1:${sonKolon}${rows.length + 1}`;
+    }
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="esamoda-excel-yedek-${tarih}.xlsx"`);
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (e) {
+    res.status(500).json({ hata: t(getLang(req), 'excelProcessError') + ': ' + e.message });
+  }
 });
 
 // --- başlat ---
