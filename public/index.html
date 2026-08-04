@@ -3096,6 +3096,27 @@ async function loadAksesuarList(siparisId) {
 async function aksesuarAlanGuncelle(id, field, value) {
   const sipId = document.getElementById('aksesuarSiparisId').value;
   try {
+    // Bekleyen sevkiyat değişikliklerini hemen kaydet (race condition fix)
+    if (window._aksesuarSevkiyatTimer) {
+      clearTimeout(window._aksesuarSevkiyatTimer);
+      window._aksesuarSevkiyatTimer = null;
+      // DOM'dan mevcut sevkiyat verilerini topla ve hemen kaydet
+      const subRows = document.querySelectorAll('#aksesuarTable tbody tr[data-aksesuar-id="' + id + '"]');
+      if (subRows.length > 0) {
+        const detaylar = [];
+        subRows.forEach(function(row) {
+          const inputs = row.querySelectorAll('input');
+          detaylar.push({
+            aciklama: (inputs[0] && inputs[0].value) || '',
+            adet: parseInt(inputs[1] && inputs[1].value) || 0,
+            fatura: (inputs[2] && inputs[2].value) || '',
+            tutar: parseFloat(inputs[3] && inputs[3].value) || 0
+          });
+        });
+        await aksesuarSevkiyatKaydet(id, detaylar);
+      }
+    }
+
     // önce mevcut kaydı çek
     const a = await apiFetch('/api/aksesuar/' + id).then(r => r.json());
     if (!a || a.hata) return;
@@ -3320,6 +3341,25 @@ async function kumasYeniEkle() {
 async function kumasAlanGuncelle(id, field, value) {
   var sipId = document.getElementById('kumasSiparisId').value;
   try {
+    // Bekleyen sevkiyat değişikliklerini hemen kaydet (race condition fix)
+    if (window._kumasSevkiyatTimer) {
+      clearTimeout(window._kumasSevkiyatTimer);
+      window._kumasSevkiyatTimer = null;
+      const subRows = document.querySelectorAll('#kumasTable tbody tr[data-kumas-id="' + id + '"]');
+      if (subRows.length > 0) {
+        const detaylar = [];
+        subRows.forEach(function(row) {
+          const inputs = row.querySelectorAll('input');
+          detaylar.push({
+            adet: parseFloat(inputs[0] && inputs[0].value) || 0,
+            fatura: (inputs[1] && inputs[1].value) || '',
+            tutar: parseFloat(inputs[2] && inputs[2].value) || 0
+          });
+        });
+        await kumasSevkiyatKaydet(id, detaylar);
+      }
+    }
+
     var k = await apiFetch('/api/kumas/' + id).then(r => r.json());
     if (!k || k.hata) return;
     var body = {
