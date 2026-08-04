@@ -3421,7 +3421,7 @@ async function kumasSevkiyatKaydet(id, detaylar) {
 }
 
 async function kumasSiparisFormu(id) {
-  var token = localStorage.getItem('token');
+  var token = getToken();
   if (!token) { showToast('❌ Oturum bulunamadı'); return; }
 
   try {
@@ -3431,7 +3431,6 @@ async function kumasSiparisFormu(id) {
     var siparis = await apiFetch('/api/siparisler/' + kumas.siparis_id).then(r => r.json()).catch(() => ({}));
 
     document.getElementById('ksfKumasId').value = id;
-    document.getElementById('ksfToken').value = token;
 
     // Sipariş bilgileri
     document.getElementById('ksfMusteri').textContent = siparis.musteri_adi || '-';
@@ -3470,7 +3469,7 @@ function closeKumasSiparisFormModal() {
 
 async function kumasSiparisFormIndir() {
   var id = document.getElementById('ksfKumasId').value;
-  var token = document.getElementById('ksfToken').value;
+  var token = getToken();
 
   var data = {
     tedarikci_firma: document.getElementById('ksfTedFirma').value,
@@ -3485,7 +3484,7 @@ async function kumasSiparisFormIndir() {
   try {
     var resp = await fetch('/api/kumas/' + id + '/siparis-formu', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-auth-token': token },
+      headers: { 'Content-Type': 'application/json', 'X-Auth-Token': token },
       body: JSON.stringify(data)
     });
 
