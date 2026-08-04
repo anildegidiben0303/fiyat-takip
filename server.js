@@ -1309,228 +1309,199 @@ app.delete('/api/kumas/:id', (req, res) => {
 });
 
 // --- KUMAŞ SİPARİŞ FORMU (Excel) ---
+
+async function generateKumasSiparisFormu(res, kumas, overrides = {}) {
+  const workbook = new ExcelJS.Workbook();
+  const ws = workbook.addWorksheet('Kumaş Sipariş Formu', {
+    pageSetup: { orientation: 'portrait', paperSize: 9, margins: { top: 0.5, bottom: 0.5, left: 0.6, right: 0.6 } }
+  });
+
+  ws.columns = [
+    { key: 'A', width: 28 }, { key: 'B', width: 32 }, { key: 'C', width: 10 }, { key: 'D', width: 28 }, { key: 'E', width: 28 }
+  ];
+
+  // --- Logo ---
+  const logoPath = path.join(__dirname, 'public', 'logo.png');
+  if (fs.existsSync(logoPath)) {
+    const logoId = workbook.addImage({ filename: logoPath, extension: 'png' });
+    ws.addImage(logoId, { tl: { col: 0.1, row: 0.1 }, ext: { width: 120, height: 70 } });
+  }
+
+  // --- Başlık ---
+  ws.mergeCells('A2:E2');
+  ws.getCell('A2').value = 'KUMAŞ SİPARİŞ FORMU';
+  ws.getCell('A2').font = { bold: true, size: 20, color: { argb: 'FF1E40AF' } };
+  ws.getCell('A2').alignment = { horizontal: 'center', vertical: 'middle' };
+  ws.getRow(2).height = 38;
+
+  ws.mergeCells('D3:E3');
+  ws.getCell('D3').value = 'Tarih: ' + new Date().toLocaleDateString('tr-TR');
+  ws.getCell('D3').font = { size: 10, color: { argb: 'FF64748B' } };
+  ws.getCell('D3').alignment = { horizontal: 'right' };
+  ws.mergeCells('D4:E4');
+  ws.getCell('D4').value = 'Form No: KSF-' + kumas.id;
+  ws.getCell('D4').font = { size: 10, color: { argb: 'FF64748B' } };
+  ws.getCell('D4').alignment = { horizontal: 'right' };
+
+  // --- Stiller ---
+  const sectionFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E40AF' } };
+  const sectionFont = { bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
+  const labelFont = { bold: true, size: 11, color: { argb: 'FF1E293B' } };
+  const valueFont = { size: 11, color: { argb: 'FF334155' } };
+  const inputBorder = { bottom: { style: 'thin', color: { argb: 'FF94A3B8' } } };
+  const inputFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
+
+  let r = 6;
+
+  // --- Sipariş Bilgileri ---
+  ws.mergeCells('A' + r + ':E' + r);
+  ws.getCell('A' + r).value = '  📋 SİPARİŞ BİLGİLERİ';
+  ws.getCell('A' + r).font = sectionFont; ws.getCell('A' + r).fill = sectionFill;
+  ws.getCell('A' + r).alignment = { horizontal: 'left', vertical: 'middle' };
+  ws.getRow(r).height = 26; r++;
+
+  const siparisBilgileri = [
+    ['Müşteri Adı', kumas.musteri_adi || ''],
+    ['Firma Adı', kumas.firma_adi || ''],
+    ['Model / Ürün', kumas.urun_aciklamasi || ''],
+    ['Termin Tarihi', kumas.termin || ''],
+  ];
+  siparisBilgileri.forEach(([label, value]) => {
+    ws.mergeCells('A' + r + ':B' + r);
+    ws.getCell('A' + r).value = label; ws.getCell('A' + r).font = labelFont;
+    ws.getCell('A' + r).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+    ws.mergeCells('C' + r + ':E' + r);
+    ws.getCell('C' + r).value = value || ''; ws.getCell('C' + r).font = valueFont;
+    ws.getCell('C' + r).fill = inputFill; ws.getCell('C' + r).border = inputBorder;
+    r++;
+  });
+  r++;
+
+  // --- Kumaş Detayları ---
+  ws.mergeCells('A' + r + ':E' + r);
+  ws.getCell('A' + r).value = '  🧵 KUMAŞ DETAYLARI';
+  ws.getCell('A' + r).font = sectionFont; ws.getCell('A' + r).fill = sectionFill;
+  ws.getCell('A' + r).alignment = { horizontal: 'left', vertical: 'middle' };
+  ws.getRow(r).height = 26; r++;
+
+  const birimGider = kumas.birim_gider || 0;
+  const toplamKumasSiparis = birimGider * (kumas.adet || 0);
+
+  const kumasBilgileri = [
+    ['Kumaş Adı', kumas.kumas_adi || '', 'Renk', kumas.renk || ''],
+    ['Pastal Boyu (m)', kumas.pastal_boyu || 0, 'Kumaş Eni (m)', kumas.kumas_en || 0],
+    ['Gramaj (gr/m²)', kumas.kumas_gramaj || 0, 'Fire (%)', '%' + (kumas.fire || 0)],
+    ['Asorti', kumas.asorti || 1, 'Biye (m)', kumas.biye || 0],
+    ['Birim Gider (gr/adet)', Math.round(birimGider * 100) / 100, 'Toplam Sipariş (gr)', Math.round(toplamKumasSiparis * 100) / 100],
+    ['Sipariş Adedi', kumas.adet || 0, 'Birim Fiyat (TL)', (kumas.kumas_fiyati || 0) + ' TL'],
+  ];
+  kumasBilgileri.forEach(([l1, v1, l2, v2]) => {
+    ws.getCell('A' + r).value = l1; ws.getCell('A' + r).font = labelFont;
+    ws.getCell('A' + r).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+    ws.getCell('B' + r).value = v1 !== null && v1 !== undefined ? v1 : ''; ws.getCell('B' + r).font = valueFont;
+    ws.getCell('B' + r).fill = inputFill; ws.getCell('B' + r).border = inputBorder;
+    ws.getCell('C' + r).value = '';
+    ws.getCell('D' + r).value = l2; ws.getCell('D' + r).font = labelFont;
+    ws.getCell('D' + r).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+    ws.getCell('E' + r).value = v2 !== null && v2 !== undefined ? v2 : ''; ws.getCell('E' + r).font = valueFont;
+    ws.getCell('E' + r).fill = inputFill; ws.getCell('E' + r).border = inputBorder;
+    r++;
+  });
+  r++;
+
+  // --- Tedarikçi Bilgileri (overrides ile doldurulur) ---
+  ws.mergeCells('A' + r + ':E' + r);
+  ws.getCell('A' + r).value = '  🏭 TEDARİKÇİ BİLGİLERİ';
+  ws.getCell('A' + r).font = sectionFont; ws.getCell('A' + r).fill = sectionFill;
+  ws.getCell('A' + r).alignment = { horizontal: 'left', vertical: 'middle' };
+  ws.getRow(r).height = 26; r++;
+
+  const tedarikciAlanlari = [
+    ['Tedarikçi Firma', overrides.tedarikci_firma || ''],
+    ['İrtibat Kişisi', overrides.irtibat_kisi || ''],
+    ['Telefon', overrides.telefon || ''],
+    ['E-posta', overrides.eposta || ''],
+    ['Teslimat Adresi', overrides.teslimat_adres || ''],
+    ['İstenen Teslim Tarihi', overrides.teslim_tarihi || ''],
+  ];
+  tedarikciAlanlari.forEach(([label, value]) => {
+    ws.mergeCells('A' + r + ':B' + r);
+    ws.getCell('A' + r).value = label; ws.getCell('A' + r).font = labelFont;
+    ws.getCell('A' + r).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+    ws.mergeCells('C' + r + ':E' + r);
+    ws.getCell('C' + r).value = value || '';
+    ws.getCell('C' + r).fill = inputFill; ws.getCell('C' + r).border = inputBorder;
+    r++;
+  });
+  r++;
+
+  // --- Notlar ---
+  ws.mergeCells('A' + r + ':E' + r);
+  ws.getCell('A' + r).value = '  📝 NOTLAR';
+  ws.getCell('A' + r).font = sectionFont; ws.getCell('A' + r).fill = sectionFill;
+  ws.getCell('A' + r).alignment = { horizontal: 'left', vertical: 'middle' };
+  ws.getRow(r).height = 26; r++;
+
+  ws.mergeCells('A' + r + ':E' + (r + 3));
+  ws.getCell('A' + r).value = overrides.notlar || kumas.notlar || '';
+  ws.getCell('A' + r).fill = inputFill;
+  ws.getCell('A' + r).border = { top: { style: 'thin', color: { argb: 'FFCBD5E1' } }, bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } }, left: { style: 'thin', color: { argb: 'FFCBD5E1' } }, right: { style: 'thin', color: { argb: 'FFCBD5E1' } } };
+  for (let i = 0; i < 4; i++) ws.getRow(r + i).height = 20;
+  r += 5;
+
+  // --- Onay Bölümü ---
+  ws.mergeCells('A' + r + ':B' + r);
+  ws.getCell('A' + r).value = 'Hazırlayan';
+  ws.getCell('A' + r).font = { size: 10, color: { argb: 'FF64748B' } };
+  ws.getCell('A' + r).alignment = { horizontal: 'center' };
+  ws.getCell('A' + r).border = { bottom: { style: 'thin', color: { argb: 'FF94A3B8' } } };
+  ws.mergeCells('D' + r + ':E' + r);
+  ws.getCell('D' + r).value = 'Onaylayan';
+  ws.getCell('D' + r).font = { size: 10, color: { argb: 'FF64748B' } };
+  ws.getCell('D' + r).alignment = { horizontal: 'center' };
+  ws.getCell('D' + r).border = { bottom: { style: 'thin', color: { argb: 'FF94A3B8' } } };
+  r++;
+  ws.mergeCells('A' + r + ':B' + r);
+  ws.getCell('A' + r).value = 'İmza / Tarih:';
+  ws.getCell('A' + r).font = { size: 9, color: { argb: 'FF94A3B8' } };
+  ws.getCell('A' + r).alignment = { horizontal: 'center' };
+  ws.mergeCells('D' + r + ':E' + r);
+  ws.getCell('D' + r).value = 'İmza / Tarih:';
+  ws.getCell('D' + r).font = { size: 9, color: { argb: 'FF94A3B8' } };
+  ws.getCell('D' + r).alignment = { horizontal: 'center' };
+
+  // --- Alt bilgi ---
+  r += 2;
+  ws.mergeCells('A' + r + ':E' + r);
+  ws.getCell('A' + r).value = 'ESA MODA | Bu form otomatik oluşturulmuştur. | Sipariş No: ' + (kumas.siparis_id || '-');
+  ws.getCell('A' + r).font = { size: 8, color: { argb: 'FF94A3B8' }, italic: true };
+  ws.getCell('A' + r).alignment = { horizontal: 'center' };
+
+  const safeName = (s) => String(s || '').replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_').substring(0, 30);
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', `attachment; filename="Kumas_Siparis_Formu_${safeName(kumas.kumas_adi)}_${kumas.id}.xlsx"`);
+  await workbook.xlsx.write(res);
+  res.end();
+}
+
+// GET: hızlı indirme (sadece DB verileriyle)
 app.get('/api/kumas/:id/siparis-formu', async (req, res) => {
-  const kumas = db.prepare('SELECT k.*, s.musteri_adi, s.firma_adi, s.urun_aciklamasi, s.termin FROM kumas_takip k LEFT JOIN siparisler s ON k.siparis_id = s.id WHERE k.id = ?').get(req.params.id);
-  if (!kumas) return res.status(404).json({ hata: t(getLang(req), 'kumasNotFound') });
-
   try {
-    const workbook = new ExcelJS.Workbook();
-    const ws = workbook.addWorksheet('Kumaş Sipariş Formu', {
-      pageSetup: { orientation: 'portrait', paperSize: 9, margins: { top: 0.5, bottom: 0.5, left: 0.6, right: 0.6 } }
-    });
+    const kumas = db.prepare('SELECT k.*, s.musteri_adi, s.firma_adi, s.urun_aciklamasi, s.termin FROM kumas_takip k LEFT JOIN siparisler s ON k.siparis_id = s.id WHERE k.id = ?').get(req.params.id);
+    if (!kumas) return res.status(404).json({ hata: t(getLang(req), 'kumasNotFound') });
+    await generateKumasSiparisFormu(res, kumas, {});
+  } catch (e) {
+    res.status(500).json({ hata: t(getLang(req), 'excelProcessError') + ': ' + e.message });
+  }
+});
 
-    // Sütun genişlikleri
-    ws.columns = [
-      { key: 'A', width: 28 }, { key: 'B', width: 32 }, { key: 'C', width: 10 }, { key: 'D', width: 28 }, { key: 'E', width: 28 }
-    ];
-
-    // --- Logo ---
-    const logoPath = path.join(__dirname, 'public', 'logo.png');
-    if (fs.existsSync(logoPath)) {
-      const logoId = workbook.addImage({
-        filename: logoPath,
-        extension: 'png',
-      });
-      ws.addImage(logoId, { tl: { col: 0.1, row: 0.1 }, ext: { width: 120, height: 70 } });
-    }
-
-    // --- Başlık ---
-    ws.mergeCells('A2:E2');
-    ws.getCell('A2').value = 'KUMAŞ SİPARİŞ FORMU';
-    ws.getCell('A2').font = { bold: true, size: 20, color: { argb: 'FF1E40AF' } };
-    ws.getCell('A2').alignment = { horizontal: 'center', vertical: 'middle' };
-    ws.getRow(2).height = 38;
-
-    // Tarih ve No (sağ üst)
-    ws.mergeCells('D3:E3');
-    ws.getCell('D3').value = 'Tarih: ' + new Date().toLocaleDateString('tr-TR');
-    ws.getCell('D3').font = { size: 10, color: { argb: 'FF64748B' } };
-    ws.getCell('D3').alignment = { horizontal: 'right' };
-    ws.mergeCells('D4:E4');
-    ws.getCell('D4').value = 'Form No: KSF-' + kumas.id;
-    ws.getCell('D4').font = { size: 10, color: { argb: 'FF64748B' } };
-    ws.getCell('D4').alignment = { horizontal: 'right' };
-
-    // --- Stiller ---
-    const sectionFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E40AF' } };
-    const sectionFont = { bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
-    const labelFont = { bold: true, size: 11, color: { argb: 'FF1E293B' } };
-    const valueFont = { size: 11, color: { argb: 'FF334155' } };
-    const inputBorder = { bottom: { style: 'thin', color: { argb: 'FF94A3B8' } } };
-    const inputFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
-    const thinBorder = (c) => ({ top: { style: 'thin', color: { argb: 'FFCBD5E1' } }, bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } }, left: c === 0 ? { style: 'thin', color: { argb: 'FFCBD5E1' } } : undefined, right: c === 4 ? { style: 'thin', color: { argb: 'FFCBD5E1' } } : undefined });
-
-    // --- Sipariş Bilgileri Bölümü ---
-    let r = 6;
-    ws.mergeCells('A' + r + ':E' + r);
-    ws.getCell('A' + r).value = '  📋 SİPARİŞ BİLGİLERİ';
-    ws.getCell('A' + r).font = sectionFont;
-    ws.getCell('A' + r).fill = sectionFill;
-    ws.getCell('A' + r).alignment = { horizontal: 'left', vertical: 'middle' };
-    ws.getRow(r).height = 26;
-    r++;
-
-    const siparisBilgileri = [
-      ['Müşteri Adı', kumas.musteri_adi || ''],
-      ['Firma Adı', kumas.firma_adi || ''],
-      ['Model / Ürün', kumas.urun_aciklamasi || ''],
-      ['Termin Tarihi', kumas.termin || ''],
-    ];
-
-    siparisBilgileri.forEach(([label, value]) => {
-      ws.mergeCells('A' + r + ':B' + r);
-      ws.getCell('A' + r).value = label;
-      ws.getCell('A' + r).font = labelFont;
-      ws.getCell('A' + r).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
-      ws.mergeCells('C' + r + ':E' + r);
-      ws.getCell('C' + r).value = value || '';
-      ws.getCell('C' + r).font = valueFont;
-      ws.getCell('C' + r).fill = inputFill;
-      ws.getCell('C' + r).border = inputBorder;
-      r++;
-    });
-
-    r++;
-
-    // --- Kumaş Detayları Bölümü ---
-    ws.mergeCells('A' + r + ':E' + r);
-    ws.getCell('A' + r).value = '  🧵 KUMAŞ DETAYLARI';
-    ws.getCell('A' + r).font = sectionFont;
-    ws.getCell('A' + r).fill = sectionFill;
-    ws.getCell('A' + r).alignment = { horizontal: 'left', vertical: 'middle' };
-    ws.getRow(r).height = 26;
-    r++;
-
-    const birimGider = kumas.birim_gider || 0;
-    const toplamKumasSiparis = birimGider * (kumas.adet || 0);
-
-    const kumasBilgileri = [
-      ['Kumaş Adı', kumas.kumas_adi || '', 'Renk', kumas.renk || ''],
-      ['Pastal Boyu (m)', kumas.pastal_boyu || 0, 'Kumaş Eni (m)', kumas.kumas_en || 0],
-      ['Gramaj (gr/m²)', kumas.kumas_gramaj || 0, 'Fire (%)', '%' + (kumas.fire || 0)],
-      ['Asorti', kumas.asorti || 1, 'Biye (m)', kumas.biye || 0],
-      ['Birim Gider (gr/adet)', Math.round(birimGider * 100) / 100, 'Toplam Sipariş (gr)', Math.round(toplamKumasSiparis * 100) / 100],
-      ['Sipariş Adedi', kumas.adet || 0, 'Birim Fiyat (TL)', (kumas.kumas_fiyati || 0) + ' TL'],
-    ];
-
-    kumasBilgileri.forEach(([l1, v1, l2, v2]) => {
-      ws.getCell('A' + r).value = l1;
-      ws.getCell('A' + r).font = labelFont;
-      ws.getCell('A' + r).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
-      ws.getCell('B' + r).value = v1 !== null && v1 !== undefined ? v1 : '';
-      ws.getCell('B' + r).font = valueFont;
-      ws.getCell('B' + r).fill = inputFill;
-      ws.getCell('B' + r).border = inputBorder;
-      ws.getCell('C' + r).value = ''; // boşluk sütunu
-      ws.getCell('D' + r).value = l2;
-      ws.getCell('D' + r).font = labelFont;
-      ws.getCell('D' + r).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
-      ws.getCell('E' + r).value = v2 !== null && v2 !== undefined ? v2 : '';
-      ws.getCell('E' + r).font = valueFont;
-      ws.getCell('E' + r).fill = inputFill;
-      ws.getCell('E' + r).border = inputBorder;
-      r++;
-    });
-
-    r++;
-
-    // --- Tedarikçi Bilgileri (elle doldurulacak) ---
-    ws.mergeCells('A' + r + ':E' + r);
-    ws.getCell('A' + r).value = '  🏭 TEDARİKÇİ BİLGİLERİ';
-    ws.getCell('A' + r).font = sectionFont;
-    ws.getCell('A' + r).fill = sectionFill;
-    ws.getCell('A' + r).alignment = { horizontal: 'left', vertical: 'middle' };
-    ws.getRow(r).height = 26;
-    r++;
-
-    const tedarikciAlanlari = [
-      ['Tedarikçi Firma', ''],
-      ['İrtibat Kişisi', ''],
-      ['Telefon', ''],
-      ['E-posta', ''],
-      ['Teslimat Adresi', ''],
-      ['İstenen Teslim Tarihi', ''],
-    ];
-
-    tedarikciAlanlari.forEach(([label]) => {
-      ws.mergeCells('A' + r + ':B' + r);
-      ws.getCell('A' + r).value = label;
-      ws.getCell('A' + r).font = labelFont;
-      ws.getCell('A' + r).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
-      ws.mergeCells('C' + r + ':E' + r);
-      ws.getCell('C' + r).value = '';
-      ws.getCell('C' + r).fill = inputFill;
-      ws.getCell('C' + r).border = inputBorder;
-      r++;
-    });
-
-    r++;
-
-    // --- Notlar ---
-    ws.mergeCells('A' + r + ':E' + r);
-    ws.getCell('A' + r).value = '  📝 NOTLAR';
-    ws.getCell('A' + r).font = sectionFont;
-    ws.getCell('A' + r).fill = sectionFill;
-    ws.getCell('A' + r).alignment = { horizontal: 'left', vertical: 'middle' };
-    ws.getRow(r).height = 26;
-    r++;
-
-    ws.mergeCells('A' + r + ':E' + (r + 3));
-    ws.getCell('A' + r).value = kumas.notlar || '';
-    ws.getCell('A' + r).fill = inputFill;
-    ws.getCell('A' + r).border = { top: { style: 'thin', color: { argb: 'FFCBD5E1' } }, bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } }, left: { style: 'thin', color: { argb: 'FFCBD5E1' } }, right: { style: 'thin', color: { argb: 'FFCBD5E1' } } };
-    ws.getRow(r).height = 20;
-    ws.getRow(r + 1).height = 20;
-    ws.getRow(r + 2).height = 20;
-    ws.getRow(r + 3).height = 20;
-    r += 5;
-
-    // --- Onay Bölümü ---
-    ws.mergeCells('A' + r + ':B' + r);
-    ws.getCell('A' + r).value = 'Hazırlayan';
-    ws.getCell('A' + r).font = { size: 10, color: { argb: 'FF64748B' } };
-    ws.getCell('A' + r).alignment = { horizontal: 'center' };
-    ws.getCell('A' + r).border = { bottom: { style: 'thin', color: { argb: 'FF94A3B8' } } };
-    ws.mergeCells('D' + r + ':E' + r);
-    ws.getCell('D' + r).value = 'Onaylayan';
-    ws.getCell('D' + r).font = { size: 10, color: { argb: 'FF64748B' } };
-    ws.getCell('D' + r).alignment = { horizontal: 'center' };
-    ws.getCell('D' + r).border = { bottom: { style: 'thin', color: { argb: 'FF94A3B8' } } };
-    r++;
-
-    ws.mergeCells('A' + r + ':B' + r);
-    ws.getCell('A' + r).value = 'İmza / Tarih:';
-    ws.getCell('A' + r).font = { size: 9, color: { argb: 'FF94A3B8' } };
-    ws.getCell('A' + r).alignment = { horizontal: 'center' };
-    ws.mergeCells('D' + r + ':E' + r);
-    ws.getCell('D' + r).value = 'İmza / Tarih:';
-    ws.getCell('D' + r).font = { size: 9, color: { argb: 'FF94A3B8' } };
-    ws.getCell('D' + r).alignment = { horizontal: 'center' };
-
-    // --- Alt bilgi ---
-    r += 2;
-    ws.mergeCells('A' + r + ':E' + r);
-    ws.getCell('A' + r).value = 'ESA MODA | Bu form otomatik oluşturulmuştur. | Sipariş No: ' + (kumas.siparis_id || '-');
-    ws.getCell('A' + r).font = { size: 8, color: { argb: 'FF94A3B8' }, italic: true };
-    ws.getCell('A' + r).alignment = { horizontal: 'center' };
-
-    // --- Kenarlıklar ---
-    // Tüm hücrelere ince kenarlık ekle
-    for (let row = 6; row <= r; row++) {
-      for (let col = 0; col < 5; col++) {
-        const cell = ws.getRow(row).getCell(col + 1);
-        if (!cell.border || !cell.border.bottom) {
-          // section başlıklarını atla
-          if (cell.fill && cell.fill.fgColor && cell.fill.fgColor.argb === 'FF1E40AF') continue;
-        }
-      }
-    }
-
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    const safeName = (s) => String(s || '').replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_').substring(0, 30);
-    res.setHeader('Content-Disposition', `attachment; filename="Kumas_Siparis_Formu_${safeName(kumas.kumas_adi)}_${kumas.id}.xlsx"`);
-    await workbook.xlsx.write(res);
-    res.end();
+// POST: manuel alanlarla birlikte indirme
+app.post('/api/kumas/:id/siparis-formu', async (req, res) => {
+  try {
+    const kumas = db.prepare('SELECT k.*, s.musteri_adi, s.firma_adi, s.urun_aciklamasi, s.termin FROM kumas_takip k LEFT JOIN siparisler s ON k.siparis_id = s.id WHERE k.id = ?').get(req.params.id);
+    if (!kumas) return res.status(404).json({ hata: t(getLang(req), 'kumasNotFound') });
+    const overrides = req.body || {};
+    await generateKumasSiparisFormu(res, kumas, overrides);
   } catch (e) {
     res.status(500).json({ hata: t(getLang(req), 'excelProcessError') + ': ' + e.message });
   }

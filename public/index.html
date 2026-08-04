@@ -1501,6 +1501,84 @@
   </div>
 </div>
 
+<!-- kumaş sipariş formu modalı -->
+<div class="modal-overlay" id="kumasSiparisFormModal">
+  <div class="modal" style="max-width:650px;">
+    <div class="modal-header">
+      <h3>📋 Kumaş Sipariş Formu</h3>
+      <button class="close-modal" onclick="closeKumasSiparisFormModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="ksfKumasId">
+      <input type="hidden" id="ksfToken">
+
+      <!-- Sipariş Bilgileri (salt okunur) -->
+      <div style="background:#f1f5f9;padding:12px 16px;border-radius:8px;margin-bottom:16px;">
+        <h4 style="margin:0 0 10px 0;font-size:14px;color:#1e40af;">📋 Sipariş Bilgileri</h4>
+        <table style="width:100%;font-size:13px;">
+          <tr><td style="color:#64748b;width:110px;padding:3px 0;">Müşteri:</td><td style="font-weight:600;" id="ksfMusteri">-</td></tr>
+          <tr><td style="color:#64748b;padding:3px 0;">Firma:</td><td style="font-weight:600;" id="ksfFirma">-</td></tr>
+          <tr><td style="color:#64748b;padding:3px 0;">Model:</td><td style="font-weight:600;" id="ksfModel">-</td></tr>
+          <tr><td style="color:#64748b;padding:3px 0;">Termin:</td><td style="font-weight:600;" id="ksfTermin">-</td></tr>
+        </table>
+      </div>
+
+      <!-- Kumaş Detayları (salt okunur) -->
+      <div style="background:#f1f5f9;padding:12px 16px;border-radius:8px;margin-bottom:16px;">
+        <h4 style="margin:0 0 10px 0;font-size:14px;color:#1e40af;">🧵 Kumaş Detayları</h4>
+        <table style="width:100%;font-size:13px;">
+          <tr><td style="color:#64748b;width:110px;padding:3px 0;">Kumaş Adı:</td><td style="font-weight:600;" id="ksfKumasAdi">-</td></tr>
+          <tr><td style="color:#64748b;padding:3px 0;">Renk:</td><td style="font-weight:600;" id="ksfRenk">-</td></tr>
+          <tr><td style="color:#64748b;padding:3px 0;">Sipariş Adedi:</td><td style="font-weight:600;" id="ksfAdet">-</td></tr>
+          <tr><td style="color:#64748b;padding:3px 0;">Birim Fiyat:</td><td style="font-weight:600;" id="ksfFiyat">-</td></tr>
+          <tr><td style="color:#64748b;padding:3px 0;">Toplam Sipariş:</td><td style="font-weight:600;color:#1e40af;" id="ksfToplamSiparis">-</td></tr>
+        </table>
+      </div>
+
+      <!-- Tedarikçi Bilgileri (elle doldurulur) -->
+      <div style="margin-bottom:16px;">
+        <h4 style="margin:0 0 10px 0;font-size:14px;color:#1e40af;">🏭 Tedarikçi Bilgileri</h4>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div>
+            <label style="font-size:12px;color:#64748b;display:block;margin-bottom:2px;">Tedarikçi Firma</label>
+            <input type="text" id="ksfTedFirma" class="form-input" style="width:100%;padding:8px 10px;font-size:13px;" placeholder="Firma adı">
+          </div>
+          <div>
+            <label style="font-size:12px;color:#64748b;display:block;margin-bottom:2px;">İrtibat Kişisi</label>
+            <input type="text" id="ksfIrtibat" class="form-input" style="width:100%;padding:8px 10px;font-size:13px;" placeholder="Ad Soyad">
+          </div>
+          <div>
+            <label style="font-size:12px;color:#64748b;display:block;margin-bottom:2px;">Telefon</label>
+            <input type="text" id="ksfTelefon" class="form-input" style="width:100%;padding:8px 10px;font-size:13px;" placeholder="0(5xx) xxx xx xx">
+          </div>
+          <div>
+            <label style="font-size:12px;color:#64748b;display:block;margin-bottom:2px;">E-posta</label>
+            <input type="email" id="ksfEposta" class="form-input" style="width:100%;padding:8px 10px;font-size:13px;" placeholder="ornek@firma.com">
+          </div>
+          <div style="grid-column:1/-1;">
+            <label style="font-size:12px;color:#64748b;display:block;margin-bottom:2px;">Teslimat Adresi</label>
+            <input type="text" id="ksfAdres" class="form-input" style="width:100%;padding:8px 10px;font-size:13px;" placeholder="Açık adres">
+          </div>
+          <div>
+            <label style="font-size:12px;color:#64748b;display:block;margin-bottom:2px;">İstenen Teslim Tarihi</label>
+            <input type="date" id="ksfTeslimTarihi" class="form-input" style="width:100%;padding:8px 10px;font-size:13px;">
+          </div>
+        </div>
+      </div>
+
+      <!-- Notlar -->
+      <div style="margin-bottom:16px;">
+        <label style="font-size:12px;color:#64748b;display:block;margin-bottom:2px;">📝 Notlar</label>
+        <textarea id="ksfNotlar" class="form-input" style="width:100%;padding:8px 10px;font-size:13px;min-height:60px;resize:vertical;" placeholder="Varsa ek notlar..."></textarea>
+      </div>
+
+      <button class="btn" onclick="kumasSiparisFormIndir()" style="width:100%;background:#1e40af;color:#fff;font-size:14px;font-weight:600;padding:12px;">
+        📥 Excel İndir
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- kullanıcı yönetimi modalı -->
 <div class="modal-overlay" id="kullaniciModal">
   <div class="modal" style="max-width:600px;">
@@ -3342,12 +3420,100 @@ async function kumasSevkiyatKaydet(id, detaylar) {
   await loadKumasList(sipId);
 }
 
-function kumasSiparisFormu(id) {
+async function kumasSiparisFormu(id) {
   var token = localStorage.getItem('token');
   if (!token) { showToast('❌ Oturum bulunamadı'); return; }
-  window.open('/api/kumas/' + id + '/siparis-formu?token=' + encodeURIComponent(token), '_blank');
-  showToast('📋 Sipariş formu indiriliyor...');
+
+  try {
+    // Kumaş detaylarını API'den çek
+    var kumas = await apiFetch('/api/kumas/' + id).then(r => r.json());
+    // Sipariş bilgilerini de çek
+    var siparis = await apiFetch('/api/siparisler/' + kumas.siparis_id).then(r => r.json()).catch(() => ({}));
+
+    document.getElementById('ksfKumasId').value = id;
+    document.getElementById('ksfToken').value = token;
+
+    // Sipariş bilgileri
+    document.getElementById('ksfMusteri').textContent = siparis.musteri_adi || '-';
+    document.getElementById('ksfFirma').textContent = siparis.firma_adi || '-';
+    document.getElementById('ksfModel').textContent = siparis.urun_aciklamasi || '-';
+    document.getElementById('ksfTermin').textContent = siparis.termin || '-';
+
+    // Kumaş detayları
+    document.getElementById('ksfKumasAdi').textContent = kumas.kumas_adi || '-';
+    document.getElementById('ksfRenk').textContent = kumas.renk || '-';
+    document.getElementById('ksfAdet').textContent = (kumas.adet || 0) + ' adet';
+    document.getElementById('ksfFiyat').textContent = (kumas.kumas_fiyati || 0) + ' TL';
+
+    var birimGider = kumas.birim_gider || 0;
+    var toplam = birimGider * (kumas.adet || 0);
+    document.getElementById('ksfToplamSiparis').textContent = formatKumas(toplam);
+
+    // Tedarikçi alanlarını temizle
+    document.getElementById('ksfTedFirma').value = '';
+    document.getElementById('ksfIrtibat').value = '';
+    document.getElementById('ksfTelefon').value = '';
+    document.getElementById('ksfEposta').value = '';
+    document.getElementById('ksfAdres').value = '';
+    document.getElementById('ksfTeslimTarihi').value = '';
+    document.getElementById('ksfNotlar').value = kumas.notlar || '';
+
+    document.getElementById('kumasSiparisFormModal').classList.add('show');
+  } catch(e) {
+    showToast('❌ Kumaş bilgileri yüklenemedi: ' + e.message);
+  }
 }
+
+function closeKumasSiparisFormModal() {
+  document.getElementById('kumasSiparisFormModal').classList.remove('show');
+}
+
+async function kumasSiparisFormIndir() {
+  var id = document.getElementById('ksfKumasId').value;
+  var token = document.getElementById('ksfToken').value;
+
+  var data = {
+    tedarikci_firma: document.getElementById('ksfTedFirma').value,
+    irtibat_kisi: document.getElementById('ksfIrtibat').value,
+    telefon: document.getElementById('ksfTelefon').value,
+    eposta: document.getElementById('ksfEposta').value,
+    teslimat_adres: document.getElementById('ksfAdres').value,
+    teslim_tarihi: document.getElementById('ksfTeslimTarihi').value,
+    notlar: document.getElementById('ksfNotlar').value
+  };
+
+  try {
+    var resp = await fetch('/api/kumas/' + id + '/siparis-formu', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-auth-token': token },
+      body: JSON.stringify(data)
+    });
+
+    if (!resp.ok) {
+      var err = await resp.json().catch(() => ({}));
+      throw new Error(err.hata || 'İndirme başarısız');
+    }
+
+    var blob = await resp.blob();
+    var url = window.URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'Kumas_Siparis_Formu.xlsx';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+
+    showToast('📋 Sipariş formu indirildi!');
+    closeKumasSiparisFormModal();
+  } catch(e) {
+    showToast('❌ Hata: ' + e.message);
+  }
+}
+
+document.getElementById('kumasSiparisFormModal').addEventListener('click', function(e) {
+  if (e.target === this) closeKumasSiparisFormModal();
+});
 
 // ==============================
 // ==============================
