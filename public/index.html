@@ -1549,13 +1549,14 @@
           <table style="width:100%;font-size:12px;border-collapse:collapse;" id="ksfTablo">
             <thead>
               <tr style="background:#1e40af;color:#fff;">
-                <th style="padding:5px 6px;text-align:center;min-width:60px;">RENK</th>
-                <th style="padding:5px 6px;text-align:center;min-width:60px;">MİKTAR</th>
-                <th style="padding:5px 6px;text-align:center;min-width:60px;">FİYAT</th>
-                <th style="padding:5px 6px;text-align:center;min-width:80px;">KULLANIM YERİ</th>
-                <th style="padding:5px 6px;text-align:center;min-width:45px;">EN</th>
-                <th style="padding:5px 6px;text-align:center;min-width:55px;">GRAMAJ</th>
-                <th style="padding:5px 6px;text-align:center;min-width:80px;">SİPARİŞ TERMİNİ</th>
+                <th style="padding:5px 6px;text-align:center;min-width:70px;">KUMAŞ ADI</th>
+                <th style="padding:5px 6px;text-align:center;min-width:55px;">RENK</th>
+                <th style="padding:5px 6px;text-align:center;min-width:55px;">MİKTAR</th>
+                <th style="padding:5px 6px;text-align:center;min-width:55px;">FİYAT</th>
+                <th style="padding:5px 6px;text-align:center;min-width:75px;">KULLANIM YERİ</th>
+                <th style="padding:5px 6px;text-align:center;min-width:40px;">EN</th>
+                <th style="padding:5px 6px;text-align:center;min-width:50px;">GRAMAJ</th>
+                <th style="padding:5px 6px;text-align:center;min-width:75px;">SİPARİŞ TERMİNİ</th>
                 <th style="width:24px;"></th>
               </tr>
             </thead>
@@ -3443,13 +3444,33 @@ async function kumasSiparisFormu(id) {
 
     document.getElementById('ksfKumasId').value = id;
 
+    // Kullanıcı adını al
+    var userInfo = getUserInfo();
+    var username = (userInfo && userInfo.username) ? userInfo.username : '';
+
+    // Tarihi GG.AA.YYYY formatında hazırla
+    var now = new Date();
+    var bugun = ('0' + now.getDate()).slice(-2) + '.' + ('0' + (now.getMonth() + 1)).slice(-2) + '.' + now.getFullYear();
+    // input[type=date] için YYYY-MM-DD formatı da lazım
+    var bugunInput = now.toISOString().split('T')[0];
+
     // Üst bilgiler
-    document.getElementById('ksfMusteri').value = siparis.musteri_adi || '';
+    document.getElementById('ksfMusteri').value = 'ESA MODA';
     document.getElementById('ksfSiparisAdi').value = siparis.urun_aciklamasi || '';
-    document.getElementById('ksfSiparisiGecen').value = '';
+    document.getElementById('ksfSiparisiGecen').value = username;
     document.getElementById('ksfSaticiFirma').value = '';
     document.getElementById('ksfFirmaYetkilisi').value = '';
-    document.getElementById('ksfSiparisTarihi').value = new Date().toISOString().split('T')[0];
+    document.getElementById('ksfSiparisTarihi').value = bugunInput;
+
+    // Termin tarihini GG.AA.YYYY formatına çevir
+    var terminTR = '';
+    if (siparis.termin) {
+      var tparts = siparis.termin.split(/[-.]/);
+      if (tparts.length === 3) {
+        if (tparts[0].length === 4) terminTR = tparts[2] + '.' + tparts[1] + '.' + tparts[0];
+        else terminTR = siparis.termin;
+      } else { terminTR = siparis.termin; }
+    }
 
     // Alıcı bilgileri
     document.getElementById('ksfAdres').value = '';
@@ -3463,13 +3484,14 @@ async function kumasSiparisFormu(id) {
     var tbody = document.querySelector('#ksfTablo tbody');
     tbody.innerHTML = '';
     ksfSatirEkleInternal({
+      kumas_adi: kumas.kumas_adi || '',
       renk: kumas.renk || '',
       miktar: (kumas.adet || 0) + ' ADET',
       fiyat: (kumas.kumas_fiyati || 0) + ' TL',
       kullanim_yeri: '',
       en: kumas.kumas_en || 0,
       gramaj: kumas.kumas_gramaj || 0,
-      termin: siparis.termin || ''
+      termin: terminTR
     });
 
     document.getElementById('kumasSiparisFormModal').classList.add('show');
@@ -3482,7 +3504,7 @@ function ksfSatirEkleInternal(data) {
   var tbody = document.querySelector('#ksfTablo tbody');
   var tr = document.createElement('tr');
   tr.style.background = '#fff';
-  var fields = ['renk', 'miktar', 'fiyat', 'kullanim_yeri', 'en', 'gramaj', 'termin'];
+  var fields = ['kumas_adi', 'renk', 'miktar', 'fiyat', 'kullanim_yeri', 'en', 'gramaj', 'termin'];
   fields.forEach(function(f) {
     var td = document.createElement('td');
     td.style.padding = '2px';

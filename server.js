@@ -1316,11 +1316,11 @@ async function generateKumasSiparisFormu(res, kumas, overrides = {}) {
     pageSetup: { orientation: 'portrait', paperSize: 9, margins: { top: 0.4, bottom: 0.4, left: 0.4, right: 0.4 } }
   });
 
-  // Sütun genişlikleri: A=logo+başlık, B-H=tablo
+  // Sütun genişlikleri
   ws.columns = [
-    { key: 'A', width: 16 }, { key: 'B', width: 16 }, { key: 'C', width: 14 },
-    { key: 'D', width: 14 }, { key: 'E', width: 14 }, { key: 'F', width: 14 },
-    { key: 'G', width: 14 }, { key: 'H', width: 18 }
+    { key: 'A', width: 14 }, { key: 'B', width: 11 }, { key: 'C', width: 11 },
+    { key: 'D', width: 10 }, { key: 'E', width: 12 }, { key: 'F', width: 9 },
+    { key: 'G', width: 9 }, { key: 'H', width: 16 }
   ];
 
   // Stiller
@@ -1330,7 +1330,19 @@ async function generateKumasSiparisFormu(res, kumas, overrides = {}) {
   const labelFont = { bold: true, size: 9 };
   const valFont = { size: 9 };
 
-  const today = new Date().toLocaleDateString('tr-TR');
+  const bugun = new Date();
+  const today = ('0' + bugun.getDate()).slice(-2) + '.' + ('0' + (bugun.getMonth() + 1)).slice(-2) + '.' + bugun.getFullYear();
+
+  function formatDateTR(d) {
+    if (!d) return today;
+    // "YYYY-MM-DD" veya "GG.AA.YYYY" formatındaysa dönüştür
+    const parts = String(d).split(/[-.]/);
+    if (parts.length === 3) {
+      if (parts[0].length === 4) return parts[2] + '.' + parts[1] + '.' + parts[0]; // YYYY-MM-DD → GG.AA.YYYY
+      return parts[0] + '.' + parts[1] + '.' + parts[2]; // zaten GG.AA.YYYY
+    }
+    return String(d);
+  }
 
   // --- Logo ---
   const logoPath = path.join(__dirname, 'public', 'logo.png');
@@ -1356,7 +1368,7 @@ async function generateKumasSiparisFormu(res, kumas, overrides = {}) {
 
   // --- Üst Bilgi Alanı (2 sütun) ---
   const bilgiler = [
-    ['MÜŞTERİ', overrides.musteri || kumas.musteri_adi || '', 'SİPARİŞ ADI', overrides.siparis_adi || kumas.urun_aciklamasi || ''],
+    ['MÜŞTERİ', overrides.musteri || 'ESA MODA', 'SİPARİŞ ADI', overrides.siparis_adi || kumas.urun_aciklamasi || ''],
     ['SİPARİŞİ GEÇEN', overrides.siparisi_gecen || '', 'SATICI FİRMA', overrides.satici_firma || ''],
     ['FİRMA YETKİLİSİ', overrides.firma_yetkilisi || '', 'SİPARİŞ TARİHİ', overrides.siparis_tarihi || today],
   ];
@@ -1366,9 +1378,8 @@ async function generateKumasSiparisFormu(res, kumas, overrides = {}) {
     ws.getCell('A' + r).value = l1 + ': ' + (v1 || '');
     ws.getCell('A' + r).font = { bold: true, size: 9 };
     ws.mergeCells('D' + r + ':E' + r);
-    ws.getCell('D' + r).value = l2 + ': ' + (v2 || '');
+    ws.getCell('D' + r).value = l2 + ': ' + (v2 ? formatDateTR(v2) : '');
     ws.getCell('D' + r).font = { bold: true, size: 9 };
-    // Ayırıcı boş sütun
     ws.getCell('C' + r).value = '';
     ws.getCell('F' + r).value = '';
     r++;
@@ -1378,8 +1389,7 @@ async function generateKumasSiparisFormu(res, kumas, overrides = {}) {
   r++;
 
   // --- Tablo Başlığı ---
-  const headers = ['RENK', 'MİKTAR', 'FİYAT', 'KULLANIM YERİ', 'EN', 'GRAMAJ', 'SİPARİŞ TERMİNİ'];
-  const hRow = r;
+  const headers = ['KUMAŞ ADI', 'RENK', 'MİKTAR', 'FİYAT', 'KULLANIM YERİ', 'EN', 'GRAMAJ', 'SİPARİŞ TERMİNİ'];
   headers.forEach((h, i) => {
     const cell = ws.getCell(String.fromCharCode(65 + i) + r);
     cell.value = h;
@@ -1388,17 +1398,12 @@ async function generateKumasSiparisFormu(res, kumas, overrides = {}) {
     cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
     cell.border = thinBorder;
   });
-  // H sütunu (terim) geniş olsun
-  ws.getCell('G' + r).value = headers[6];
-  ws.getCell('G' + r).font = hFont; ws.getCell('G' + r).fill = hFill;
-  ws.getCell('G' + r).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
-  ws.getCell('G' + r).border = thinBorder;
-  ws.getCell('H' + r).value = '';
   ws.getRow(r).height = 22;
   r++;
 
-  // --- Tablo Veri Satırları (kumaş detayları - overrides ile birden fazla satır gelebilir) ---
+  // --- Tablo Veri Satırları ---
   const rows = overrides.tablo_rows || [{
+    kumas_adi: kumas.kumas_adi || '',
     renk: kumas.renk || '',
     miktar: (kumas.adet || 0) + ' ADET',
     fiyat: (kumas.kumas_fiyati || 0) + ' TL',
@@ -1409,8 +1414,8 @@ async function generateKumasSiparisFormu(res, kumas, overrides = {}) {
   }];
 
   for (let ri = 0; ri < Math.max(rows.length, 5); ri++) {
-    const row = rows[ri] || { renk: '', miktar: '', fiyat: '', kullanim_yeri: '', en: '', gramaj: '', termin: '' };
-    const vals = [row.renk || '', row.miktar || '', row.fiyat || '', row.kullanim_yeri || '', row.en || '', row.gramaj || '', row.termin || ''];
+    const row = rows[ri] || {};
+    const vals = [row.kumas_adi || '', row.renk || '', row.miktar || '', row.fiyat || '', row.kullanim_yeri || '', row.en || '', row.gramaj || '', row.termin || ''];
     vals.forEach((v, i) => {
       const cell = ws.getCell(String.fromCharCode(65 + i) + r);
       cell.value = v;
@@ -1472,6 +1477,15 @@ async function generateKumasSiparisFormu(res, kumas, overrides = {}) {
   ws.getCell('F' + r).border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } };
 
   r = Math.max(leftEnd, r + 6);
+
+  // --- Yasal Metin ---
+  r++;
+  ws.mergeCells('A' + r + ':H' + (r + 8));
+  ws.getCell('A' + r).value = 'Mallar alıcı tarafından, yukarıda belirtilen yerlerden ve belirtilen süre içerisinde teslim alınacaktır. Satıcı, ürünün tamamının ve bir kısmının zamanında teslim edememesi sonucunda alıcının müşterisinin söz konusu kumaşların kullanılacağı nihai ürün siparişlerini iptal etme ve/veya indirimli olarak alma hakkının olduğunun bilincinde olmalıdır. Satıcı, sözleşmede belirtilen teslim sürelerine uyulmaması halinde Alıcı\'nın anlaşılan KDV dahil ürün fiyatı üzerinden aşağıda belirtilen kademelendirilmiş reklamasyon bedellerinin kendisine fatura edileceğini kabul eder. Alıcı\'nın teslimde geciken ürünleri aşağıdaki tabloya göre reklamasyon uygulayarak teslim almak veya siparişi iptal etmek hakkına sahiptir. Alıcının, uğramış olduğu zararları satıcıya yansıtma hakkı saklıdır.';
+  ws.getCell('A' + r).font = { size: 7, italic: true };
+  ws.getCell('A' + r).alignment = { horizontal: 'left', vertical: 'top', wrapText: true };
+  for (let i = 0; i < 9; i++) ws.getRow(r + i).height = 14;
+  r += 9;
 
   // --- Reklamasyon Tablosu ---
   r++;
