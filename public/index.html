@@ -1069,7 +1069,7 @@
     <div class="card">
       <h2>🧾 Cari (Tedarikçi) Hesapları</h2>
       <div class="search-bar">
-        <input type="text" id="cariSearchInput" placeholder="🔍 Cari kodu, adı veya vergi no ara...">
+        <input type="text" id="cariSearchInput" placeholder="🔍 Hesap türü, cari adı veya vergi no ara...">
         <button class="btn-primary btn-sm" id="btnCariEkle">+ Yeni Cari</button>
         <button class="btn-outline btn-sm" id="btnCariRefresh">🔄 Yenile</button>
       </div>
@@ -1077,7 +1077,7 @@
         <table id="cariTable">
           <thead>
             <tr>
-              <th>Cari Kodu</th><th>Cari Adı</th><th>Vergi No</th><th>Telefon</th>
+              <th>Hesap Türü</th><th>Cari Adı</th><th>Vergi No</th><th>Telefon</th>
               <th>Borç</th><th>Alacak</th><th>Bakiye</th><th></th>
             </tr>
           </thead>
@@ -1985,8 +1985,12 @@
         <input type="hidden" id="cariKartId">
         <div class="form-grid">
           <div>
-            <label>Cari Kodu</label>
-            <input type="text" id="cariKartKodu">
+            <label>Hesap Türü</label>
+            <select id="cariKartHesapTuru">
+              <option value="Tedarikçi">Tedarikçi</option>
+              <option value="Müşteri">Müşteri</option>
+              <option value="Diğer">Diğer</option>
+            </select>
           </div>
           <div>
             <label>Cari Adı *</label>
@@ -6780,7 +6784,7 @@ async function loadCariList(arama) {
     let rows = await res.json();
     if (arama) {
       const q = arama.toLocaleLowerCase('tr');
-      rows = rows.filter(r => (r.cari_adi || '').toLocaleLowerCase('tr').includes(q) || (r.cari_kodu || '').toLocaleLowerCase('tr').includes(q) || (r.vergi_no || '').toLocaleLowerCase('tr').includes(q) || (r.telefon || '').includes(q));
+      rows = rows.filter(r => (r.cari_adi || '').toLocaleLowerCase('tr').includes(q) || (r.hesap_turu || '').toLocaleLowerCase('tr').includes(q) || (r.vergi_no || '').toLocaleLowerCase('tr').includes(q) || (r.telefon || '').includes(q));
     }
     cariTbody.innerHTML = '';
     document.getElementById('cariCount').textContent = rows.length;
@@ -6791,7 +6795,7 @@ async function loadCariList(arama) {
       const tr = document.createElement('tr');
       tr.style.cursor = 'pointer';
       tr.innerHTML = `
-        <td>${esc(r.cari_kodu || '-')}</td>
+        <td>${esc(r.hesap_turu || 'Tedarikçi')}</td>
         <td style="font-weight:600;">${esc(r.cari_adi)}</td>
         <td>${esc(r.vergi_no || '-')}</td>
         <td>${esc(r.telefon || '-')}</td>
@@ -6823,7 +6827,7 @@ function openCariKartModal(id) {
     document.getElementById('cariKartModalTitle').textContent = '🧾 Cari Kartı Düzenle';
     apiFetch('/api/cari/' + id).then(r => r.json()).then(row => {
       document.getElementById('cariKartId').value = row.id;
-      document.getElementById('cariKartKodu').value = row.cari_kodu || '';
+      document.getElementById('cariKartHesapTuru').value = row.hesap_turu || 'Tedarikçi';
       document.getElementById('cariKartAdi').value = row.cari_adi || '';
       document.getElementById('cariKartVergiNo').value = row.vergi_no || '';
       document.getElementById('cariKartTelefon').value = row.telefon || '';
@@ -6844,7 +6848,7 @@ async function cariKartKaydet() {
   const cari_adi = document.getElementById('cariKartAdi').value.trim();
   if (!cari_adi) return alert('Cari adı zorunludur.');
   const body = {
-    cari_kodu: document.getElementById('cariKartKodu').value.trim(),
+    hesap_turu: document.getElementById('cariKartHesapTuru').value,
     cari_adi: cari_adi,
     vergi_no: document.getElementById('cariKartVergiNo').value.trim(),
     telefon: document.getElementById('cariKartTelefon').value.trim(),
@@ -6889,7 +6893,7 @@ async function loadCariEkstre(id) {
     const kart = await apiFetch('/api/cari/' + id).then(r => r.json());
     document.getElementById('cariEkstreTitle').textContent = '📒 ' + (kart.cari_adi || 'Cari Ekstre');
     document.getElementById('cariEkstreKartBilgi').innerHTML =
-      (kart.cari_kodu ? '<strong>Kod:</strong> ' + esc(kart.cari_kodu) + ' &nbsp;|&nbsp; ' : '') +
+      (kart.hesap_turu ? '<strong>Hesap Türü:</strong> ' + esc(kart.hesap_turu) + ' &nbsp;|&nbsp; ' : '') +
       (kart.vergi_no ? '<strong>Vergi No:</strong> ' + esc(kart.vergi_no) + ' &nbsp;|&nbsp; ' : '') +
       (kart.telefon ? '<strong>Tel:</strong> ' + esc(kart.telefon) : '');
 

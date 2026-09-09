@@ -334,7 +334,7 @@ try {
 db.exec(`
   CREATE TABLE IF NOT EXISTS cari_kartlar (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    cari_kodu TEXT DEFAULT '',
+    hesap_turu TEXT DEFAULT 'Tedarikçi',
     cari_adi TEXT NOT NULL,
     vergi_no TEXT DEFAULT '',
     telefon TEXT DEFAULT '',
@@ -344,6 +344,8 @@ db.exec(`
     created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
   )
 `);
+
+try { db.exec('ALTER TABLE cari_kartlar ADD COLUMN hesap_turu TEXT DEFAULT \'Tedarikçi\''); } catch (e) { /* zaten var */ }
 
 // --- cari hareketler tablosu (borç/alacak) ---
 db.exec(`
@@ -2873,24 +2875,24 @@ app.get('/api/cari/:id', (req, res) => {
 
 // yeni cari kartı ekle
 app.post('/api/cari', (req, res) => {
-  const { cari_kodu, cari_adi, vergi_no, telefon, email, adres, notlar } = req.body;
+  const { hesap_turu, cari_adi, vergi_no, telefon, email, adres, notlar } = req.body;
   if (!cari_adi) return res.status(400).json({ hata: t(getLang(req), 'cariAdiRequired') });
   const info = db.prepare(`
-    INSERT INTO cari_kartlar (cari_kodu, cari_adi, vergi_no, telefon, email, adres, notlar)
+    INSERT INTO cari_kartlar (hesap_turu, cari_adi, vergi_no, telefon, email, adres, notlar)
     VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run(cari_kodu || '', cari_adi, vergi_no || '', telefon || '', email || '', adres || '', notlar || '');
+  `).run(hesap_turu || 'Tedarikçi', cari_adi, vergi_no || '', telefon || '', email || '', adres || '', notlar || '');
   res.status(201).json({ id: info.lastInsertRowid, mesaj: t(getLang(req), 'cariCreated') });
 });
 
 // cari kartı güncelle
 app.put('/api/cari/:id', (req, res) => {
-  const { cari_kodu, cari_adi, vergi_no, telefon, email, adres, notlar } = req.body;
+  const { hesap_turu, cari_adi, vergi_no, telefon, email, adres, notlar } = req.body;
   const eski = db.prepare('SELECT * FROM cari_kartlar WHERE id = ?').get(req.params.id);
   if (!eski) return res.status(404).json({ hata: t(getLang(req), 'cariNotFound') });
   db.prepare(`
-    UPDATE cari_kartlar SET cari_kodu=?, cari_adi=?, vergi_no=?, telefon=?, email=?, adres=?, notlar=?
+    UPDATE cari_kartlar SET hesap_turu=?, cari_adi=?, vergi_no=?, telefon=?, email=?, adres=?, notlar=?
     WHERE id=?
-  `).run(cari_kodu || '', cari_adi || eski.cari_adi, vergi_no || '', telefon || '', email || '', adres || '', notlar || '', req.params.id);
+  `).run(hesap_turu || 'Tedarikçi', cari_adi || eski.cari_adi, vergi_no || '', telefon || '', email || '', adres || '', notlar || '', req.params.id);
   res.json({ mesaj: t(getLang(req), 'cariUpdated') });
 });
 
