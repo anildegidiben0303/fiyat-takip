@@ -4732,8 +4732,8 @@ async function gerceklesenDuzenle(id, source) {
           });
           faturaIcerik.innerHTML = lines.join('<br>') + '<br><strong style="color:#059669;">Toplam: ₺ ' + formatPara(fd.toplam_tutar) + '</strong>';
           faturaOzet.style.display = 'block';
-          // aksesuar bedelini fatura toplamıyla otomatik doldur
-          if (fd.toplam_tutar > 0) {
+          // aksesuar bedelini fatura toplamıyla otomatik doldur (sadece elle girilmemişse)
+          if (fd.toplam_tutar > 0 && (row.aksesuar_bedeli || 0) === 0) {
             document.querySelector('[name="gerceklesenEditAksesuarBedeli"]').value = fd.toplam_tutar;
             // aksesuar_bedeli detay listesini de güncelle
             gerceklesenDetaylar['aksesuar_bedeli'] = fd.faturalar.map(function(f) {
@@ -4762,7 +4762,7 @@ async function gerceklesenDuzenle(id, source) {
           });
           kumasFaturaIcerik.innerHTML = lines.join('<br>') + '<br><strong style="color:#1e40af;">Toplam: ₺ ' + formatPara(kfd.toplam_tutar) + '</strong>';
           kumasFaturaOzet.style.display = 'block';
-          if (kfd.toplam_tutar > 0) {
+          if (kfd.toplam_tutar > 0 && (row.kumas_bedeli || 0) === 0) {
             document.querySelector('[name="gerceklesenEditKumasBedeli"]').value = kfd.toplam_tutar;
             gerceklesenDetaylar['kumas_bedeli'] = kfd.faturalar.map(function(f) {
               return { aciklama: f.kumas_adi + (f.renk ? ' (' + f.renk + ')' : '') + ' - ' + f.fatura, deger: f.tutar || 0 };
