@@ -2008,6 +2008,10 @@
             <label>E-posta</label>
             <input type="text" id="cariKartEmail">
           </div>
+          <div>
+            <label>Vade</label>
+            <input type="text" id="cariKartVade" placeholder="Örn: 30 gün, 60 gün, Peşin">
+          </div>
           <div class="full">
             <label>Adres</label>
             <input type="text" id="cariKartAdres">
@@ -6831,6 +6835,7 @@ function openCariKartModal(id) {
       document.getElementById('cariKartVergiNo').value = row.vergi_no || '';
       document.getElementById('cariKartTelefon').value = row.telefon || '';
       document.getElementById('cariKartEmail').value = row.email || '';
+      document.getElementById('cariKartVade').value = row.vade || '';
       document.getElementById('cariKartAdres').value = row.adres || '';
       document.getElementById('cariKartNotlar').value = row.notlar || '';
     }).catch(() => {});
@@ -6852,6 +6857,7 @@ async function cariKartKaydet() {
     vergi_no: document.getElementById('cariKartVergiNo').value.trim(),
     telefon: document.getElementById('cariKartTelefon').value.trim(),
     email: document.getElementById('cariKartEmail').value.trim(),
+    vade: document.getElementById('cariKartVade').value.trim(),
     adres: document.getElementById('cariKartAdres').value.trim(),
     notlar: document.getElementById('cariKartNotlar').value.trim()
   };
@@ -6894,6 +6900,7 @@ async function loadCariEkstre(id) {
     document.getElementById('cariEkstreKartBilgi').innerHTML =
       (kart.hesap_turu ? '<strong>Hesap Türü:</strong> ' + esc(kart.hesap_turu) + ' &nbsp;|&nbsp; ' : '') +
       (kart.vergi_no ? '<strong>Vergi No:</strong> ' + esc(kart.vergi_no) + ' &nbsp;|&nbsp; ' : '') +
+      (kart.vade ? '<strong>Vade:</strong> ' + esc(kart.vade) + ' &nbsp;|&nbsp; ' : '') +
       (kart.telefon ? '<strong>Tel:</strong> ' + esc(kart.telefon) : '');
 
     const res = await apiFetch('/api/cari/' + id + '/hareketler');
