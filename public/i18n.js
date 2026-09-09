@@ -1,5 +1,5 @@
 // ============================================
-// ESA MODA - Çeviri Sözlüğü (TR / EN)
+// Fiyat Takip - Çeviri Sözlüğü (TR / EN)
 // ============================================
 const TRANSLATIONS = {
   tr: {
@@ -47,7 +47,8 @@ const TRANSLATIONS = {
       fiyatlar: 'Fiyatlar',
       siparisler: 'Siparişler',
       gerceklesen: 'Gerçekleşen',
-      odemeler: 'Ödemeler'
+      odemeler: 'Ödemeler',
+      gelirTakip: 'Gelir Takip'
     },
 
     // --- Fiyatlar ---
@@ -200,7 +201,8 @@ const TRANSLATIONS = {
       statusGecikti: 'Gecikti', statusIptalO: 'İptal',
       typeNakit: 'Nakit', typeCek: 'Çek',
       typeKrediKarti: 'Kredi Kartı',
-      typeBankaKredisi: 'Banka Kredisi', typeSpotKredi: 'Spot Kredi', typeRotatifKredi: 'Rotatif Kredi',
+      typeBankaKredisi: 'Banka Kredisi', typeSpotKredi: 'Spot Kredi', typeRotatifKredi: 'Rotatif Kredi', typeVadeliOdeme: 'Vadeli Ödeme',
+      typeKira: 'Kira', typeMaas: 'Maaş', typeVergi: 'Vergi',
       fieldFirma: 'Firma / Cari', fieldOdemeTuru: 'Ödeme Türü', fieldTutar: 'Tutar',
       fieldVade: 'Vade Tarihi', fieldAciklama: 'Açıklama',
       fieldCekNo: 'Çek No', fieldBanka: 'Banka Adı', fieldCekSahibi: 'Çeki Veren',
@@ -211,11 +213,19 @@ const TRANSLATIONS = {
       updateRemaining: 'Kalanı Güncelle',
       creditGroupPaid: 'Tamamı Ödendi', creditGroupRemaining: 'Kalan',
       creditGroupPaidAmount: 'Ödenen',
-      weekOverdue: 'Gecikmiş', weekThisWeek: 'Bu Hafta', weekPast: 'Geçti',
+      weekOverdue: 'Gecikmiş', weekThisWeek: 'Bu Hafta', weekThisMonth: 'Bu Ay', weekPast: 'Geçti',
       weekPrefix: 'Hafta',
       summaryBekleyen: 'Bekleyen', summaryThisWeek: 'Bu Hafta',
       summaryGecikmis: 'Gecikmiş', summaryToplamBekleyen: 'Toplam Bekleyen',
-      summaryTahsilEdilen: 'Tahsil Edilen', summaryTotalTahsilat: 'Toplam Tahsilat'
+      summaryTahsilEdilen: 'Tahsil Edilen', summaryTotalTahsilat: 'Toplam Tahsilat',
+      summaryBuAyFaiz: 'Bu Ay Faiz',
+      combinedTitle: 'Gelir-Gider Raporu',
+      weekGelir: 'Gelir',
+      weekGider: 'Gider',
+      weekBakiye: 'Net',
+      weekGelirler: 'Gelirler',
+      weekGiderler: 'Giderler',
+      emptyCombined: 'Henüz gelir veya gider kaydı yok.'
     },
 
     // --- Aksesuar Takip ---
@@ -280,6 +290,33 @@ const TRANSLATIONS = {
       toastUploadError: 'Hata'
     },
 
+    // --- Gelir Takip ---
+    gelirTakip: {
+      title: 'Gelir Değerlendirme',
+      emptyMsg: 'Henüz gelir takip kaydı yok.',
+      editTitle: 'Gelir Değerlendirme',
+      confirmDelete: 'Bu gelir takip kaydını silmek istediğinize emin misiniz?',
+      toastSaved: 'Gelir takip güncellendi!',
+      toastDeleted: 'Gelir takip silindi',
+      errorLoad: 'Gelir takip listesi yüklenemedi',
+      colCustomer: 'Müşteri', colCompany: 'Firma', colModel: 'Model',
+      colToplamTutar: 'Toplam Tutar', colNakit: 'Nakit', colCek: 'Çek',
+      colKalan: 'Kalan', colNot: 'Not',
+      summaryToplamGelir: 'Toplam Gelir', summaryNakit: 'Nakit',
+      summaryCekToplam: 'Çek Toplam', summaryTeminatCek: 'Teminata Verilen Çek',
+      summaryKirdirilanCek: 'Kırdırılan Çek', summaryNetNakit: 'Net Nakit',
+      fieldNakitTutar: 'Nakit Tutar',
+      cekEkle: '+ Çek Ekle', cekSil: 'Çek Sil',
+      cekTutar: 'Çek Tutarı', cekVade: 'Vade Tarihi', cekBanka: 'Banka',
+      cekNo: 'Çek No',
+      cekDurumBekliyor: 'Bekliyor', cekDurumTeminata: 'Teminata Verildi',
+      cekDurumKirdirildi: 'Kırdırıldı',
+      cekKomisyon: 'Komisyon / Kesinti', cekNetTutar: 'Net Tutar',
+      cekKirdirmaTarihi: 'Kırdırma Tarihi', cekNotlar: 'Notlar',
+      cekBaslik: 'Çek Detayları',
+      noCek: 'Çek bulunmuyor'
+    },
+
     // --- Aylar ---
     months: ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran',
              'Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'],
@@ -338,7 +375,8 @@ const TRANSLATIONS = {
       fiyatlar: 'Prices',
       siparisler: 'Orders',
       gerceklesen: 'Actual Costs',
-      odemeler: 'Payments'
+      odemeler: 'Payments',
+      gelirTakip: 'Revenue'
     },
 
     fiyatlar: {
@@ -487,7 +525,8 @@ const TRANSLATIONS = {
       statusGecikti: 'Overdue', statusIptalO: 'Cancelled',
       typeNakit: 'Cash', typeCek: 'Check',
       typeKrediKarti: 'Credit Card',
-      typeBankaKredisi: 'Bank Loan', typeSpotKredi: 'Spot Credit', typeRotatifKredi: 'Revolving Credit',
+      typeBankaKredisi: 'Bank Loan', typeSpotKredi: 'Spot Credit', typeRotatifKredi: 'Revolving Credit', typeVadeliOdeme: 'Term Payment',
+      typeKira: 'Rent', typeMaas: 'Salary', typeVergi: 'Tax',
       fieldFirma: 'Company / Customer', fieldOdemeTuru: 'Payment Type', fieldTutar: 'Amount',
       fieldVade: 'Due Date', fieldAciklama: 'Description',
       fieldCekNo: 'Check No', fieldBanka: 'Bank Name', fieldCekSahibi: 'Check Issuer',
@@ -498,11 +537,19 @@ const TRANSLATIONS = {
       updateRemaining: 'Update Remaining',
       creditGroupPaid: 'Fully Paid', creditGroupRemaining: 'Remaining',
       creditGroupPaidAmount: 'Paid',
-      weekOverdue: 'Overdue', weekThisWeek: 'This Week', weekPast: 'Past',
+      weekOverdue: 'Overdue', weekThisWeek: 'This Week', weekThisMonth: 'This Month', weekPast: 'Past',
       weekPrefix: 'Week',
       summaryBekleyen: 'Pending', summaryThisWeek: 'This Week',
       summaryGecikmis: 'Overdue', summaryToplamBekleyen: 'Total Pending',
-      summaryTahsilEdilen: 'Collected', summaryTotalTahsilat: 'Total Collected'
+      summaryTahsilEdilen: 'Collected', summaryTotalTahsilat: 'Total Collected',
+      summaryBuAyFaiz: 'This Month Interest',
+      combinedTitle: 'Income-Expense Report',
+      weekGelir: 'Income',
+      weekGider: 'Expense',
+      weekBakiye: 'Net',
+      weekGelirler: 'Income',
+      weekGiderler: 'Expenses',
+      emptyCombined: 'No income or expense records yet.'
     },
 
     aksesuar: {
@@ -563,6 +610,33 @@ const TRANSLATIONS = {
       toastUploadError: 'Error'
     },
 
+    // --- Revenue Tracking ---
+    gelirTakip: {
+      title: 'Revenue Evaluation',
+      emptyMsg: 'No revenue tracking records yet.',
+      editTitle: 'Revenue Evaluation',
+      confirmDelete: 'Are you sure you want to delete this revenue record?',
+      toastSaved: 'Revenue tracking updated!',
+      toastDeleted: 'Revenue tracking deleted',
+      errorLoad: 'Could not load revenue tracking list',
+      colCustomer: 'Customer', colCompany: 'Company', colModel: 'Model',
+      colToplamTutar: 'Total Amount', colNakit: 'Cash', colCek: 'Check',
+      colKalan: 'Remaining', colNot: 'Note',
+      summaryToplamGelir: 'Total Revenue', summaryNakit: 'Cash',
+      summaryCekToplam: 'Check Total', summaryTeminatCek: 'Check as Collateral',
+      summaryKirdirilanCek: 'Discounted Check', summaryNetNakit: 'Net Cash',
+      fieldNakitTutar: 'Cash Amount',
+      cekEkle: '+ Add Check', cekSil: 'Remove Check',
+      cekTutar: 'Check Amount', cekVade: 'Due Date', cekBanka: 'Bank',
+      cekNo: 'Check No',
+      cekDurumBekliyor: 'Pending', cekDurumTeminata: 'As Collateral',
+      cekDurumKirdirildi: 'Discounted',
+      cekKomisyon: 'Commission / Fee', cekNetTutar: 'Net Amount',
+      cekKirdirmaTarihi: 'Discount Date', cekNotlar: 'Notes',
+      cekBaslik: 'Check Details',
+      noCek: 'No checks'
+    },
+
     months: ['January','February','March','April','May','June',
              'July','August','September','October','November','December'],
     monthsShort: ['Jan','Feb','Mar','Apr','May','Jun',
@@ -579,7 +653,7 @@ const TRANSLATIONS = {
 // ============================================
 // i18n Fonksiyonları
 // ============================================
-const LANG_KEY = 'esa_lang';
+const LANG_KEY = 'ft_lang';
 
 function getLang() {
   return localStorage.getItem(LANG_KEY) || 'tr';

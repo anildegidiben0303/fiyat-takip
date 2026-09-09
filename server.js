@@ -12,6 +12,10 @@ const swaggerUi = require('swagger-ui-express');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const COMPANY_NAME = process.env.COMPANY_NAME || 'Fiyat Takip';
+const COMPANY_SLUG = process.env.COMPANY_SLUG || 'fiyat-takip';
+const APP_URL = process.env.APP_URL || ('http://localhost:' + PORT);
+const ADMIN_DEFAULT_PASSWORD = process.env.ADMIN_DEFAULT_PASSWORD || 'admin123';
 
 // dil tespiti
 function getLang(req) {
@@ -21,8 +25,8 @@ function getLang(req) {
 // --- çok kullanıcılı auth sistemi ---
 
 const ROLE_PERMISSIONS = {
-  admin: ['fiyatlar','siparisler','gerceklesen','odemeler','bant','kullanicilar'],
-  muhasebe: ['fiyatlar','gerceklesen','odemeler'],
+  admin: ['fiyatlar','siparisler','gerceklesen','odemeler','bant','kullanicilar','gelir_takip'],
+  muhasebe: ['fiyatlar','gerceklesen','odemeler','gelir_takip'],
   operasyon: ['siparisler','gerceklesen','bant'],
   satis: ['fiyatlar','siparisler']
 };
@@ -212,6 +216,8 @@ try { db.exec('ALTER TABLE gerceklesen ADD COLUMN aksesuar_bedeli_detay TEXT DEF
 try { db.exec('ALTER TABLE gerceklesen ADD COLUMN iscilik_bedeli_detay TEXT DEFAULT \'[]\''); } catch (e) { /* zaten var */ }
 try { db.exec('ALTER TABLE gerceklesen ADD COLUMN baski_nakis_yikama REAL DEFAULT 0'); } catch (e) { /* zaten var */ }
 try { db.exec('ALTER TABLE gerceklesen ADD COLUMN baski_nakis_yikama_detay TEXT DEFAULT \'[]\''); } catch (e) { /* zaten var */ }
+try { db.exec('ALTER TABLE gerceklesen ADD COLUMN paketleme_bedeli REAL DEFAULT 0'); } catch (e) { /* zaten var */ }
+try { db.exec('ALTER TABLE gerceklesen ADD COLUMN nakliye_bedeli REAL DEFAULT 0'); } catch (e) { /* zaten var */ }
 
 // --- ödeme planı tablosu ---
 db.exec(`
@@ -236,6 +242,9 @@ try { db.exec('ALTER TABLE odemeler ADD COLUMN cek_no TEXT DEFAULT \'\''); } cat
 try { db.exec('ALTER TABLE odemeler ADD COLUMN banka TEXT DEFAULT \'\''); } catch (e) { /* zaten var */ }
 try { db.exec('ALTER TABLE odemeler ADD COLUMN cek_sahibi TEXT DEFAULT \'\''); } catch (e) { /* zaten var */ }
 try { db.exec('ALTER TABLE odemeler ADD COLUMN kredi_grup_id TEXT DEFAULT \'\''); } catch (e) { /* zaten var */ }
+try { db.exec('ALTER TABLE odemeler ADD COLUMN ana_para REAL DEFAULT 0'); } catch (e) { /* zaten var */ }
+try { db.exec('ALTER TABLE odemeler ADD COLUMN faiz_tutari REAL DEFAULT 0'); } catch (e) { /* zaten var */ }
+try { db.exec('ALTER TABLE odemeler ADD COLUMN bsmv_tutari REAL DEFAULT 0'); } catch (e) { /* zaten var */ }
 
 // --- aksesuar takip tablosu ---
 db.exec(`
@@ -254,6 +263,7 @@ db.exec(`
 // migration: aksesuar çoklu sevkiyat detay
 try { db.exec('ALTER TABLE aksesuar_takip ADD COLUMN gelen_detay TEXT DEFAULT \'[]\''); } catch (e) { /* zaten var */ }
 try { db.exec('ALTER TABLE aksesuar_takip ADD COLUMN birim_fiyat REAL DEFAULT 0'); } catch (e) { /* zaten var */ }
+try { db.exec('ALTER TABLE aksesuar_takip ADD COLUMN renk TEXT DEFAULT \'\''); } catch (e) { /* zaten var */ }
 
 // --- kumaş takip tablosu ---
 db.exec(`
@@ -282,6 +292,54 @@ try { db.exec('ALTER TABLE kumas_takip ADD COLUMN kumas_fiyati REAL DEFAULT 0');
 try { db.exec('ALTER TABLE kumas_takip ADD COLUMN kesim_adedi INTEGER DEFAULT 0'); } catch (e) { /* zaten var */ }
 try { db.exec('ALTER TABLE kumas_takip ADD COLUMN kesim_yuzdesi REAL DEFAULT 0'); } catch (e) { /* zaten var */ }
 try { db.exec('ALTER TABLE kumas_takip ADD COLUMN gerceklesen_birim REAL DEFAULT 0'); } catch (e) { /* zaten var */ }
+
+// --- gelir takip tablosu ---
+db.exec(`
+  CREATE TABLE IF NOT EXISTS gelir_takip (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    siparis_id INTEGER NOT NULL,
+    musteri_adi TEXT NOT NULL,
+    firma_adi TEXT DEFAULT '',
+    urun_aciklamasi TEXT NOT NULL,
+    toplam_tutar REAL NOT NULL DEFAULT 0,
+    para_birimi TEXT DEFAULT 'TL',
+    nakit_tutar REAL DEFAULT 0,
+    cek_toplam REAL DEFAULT 0,
+    cek_detay TEXT DEFAULT '[]',
+    durum TEXT DEFAULT 'Bekliyor',
+    notlar TEXT DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+  )
+`);
+try { db.exec('ALTER TABLE gelir_takip ADD COLUMN durum TEXT DEFAULT \'Bekliyor\''); } catch (e) { /* zaten var */ }
+try { db.exec('ALTER TABLE gelir_takip ADD COLUMN notlar TEXT DEFAULT \'\''); } catch (e) { /* zaten var */ }
+try { db.exec('ALTER TABLE gelir_takip ADD COLUMN odeme_turu TEXT DEFAULT \'\''); } catch (e) { /* zaten var */ }
+try { db.exec('ALTER TABLE gelir_takip ADD COLUMN tarih TEXT DEFAULT \'\''); } catch (e) { /* zaten var */ }
+try { db.exec('ALTER TABLE gelir_takip ADD COLUMN tfs_detay TEXT DEFAULT \'[]\''); } catch (e) { /* zaten var */ }
+
+// mevcut admin/muhasebe kullanıcılarına gelir_takip yetkisi ekle
+try {
+  const usersToUpdate = db.prepare("SELECT id, permissions FROM kullanicilar WHERE (rol = 'admin' OR rol = 'muhasebe') AND (permissions IS NULL OR permissions NOT LIKE '%gelir_takip%')").all();
+  usersToUpdate.forEach(user => {
+    let perms = [];
+    try { perms = JSON.parse(user.permissions || '[]'); } catch(e) { perms = []; }
+    if (!perms.includes('gelir_takip')) {
+      perms.push('gelir_takip');
+      db.prepare('UPDATE kullanicilar SET permissions = ? WHERE id = ?').run(JSON.stringify(perms), user.id);
+    }
+  });
+} catch (e) { /* ignore */ }
+
+// --- ayarlar tablosu (global birim fiyatlar vs) ---
+db.exec(`
+  CREATE TABLE IF NOT EXISTS ayarlar (
+    anahtar TEXT PRIMARY KEY,
+    deger TEXT NOT NULL DEFAULT ''
+  )
+`);
+// varsayılanları ekle
+db.prepare("INSERT OR IGNORE INTO ayarlar (anahtar, deger) VALUES ('paketleme_birim_fiyat', '2.65')").run();
+db.prepare("INSERT OR IGNORE INTO ayarlar (anahtar, deger) VALUES ('nakliye_birim_fiyat', '2.00')").run();
 
 // kullanıcılar tablosu
 db.exec(`
@@ -313,8 +371,8 @@ const adminVar = db.prepare('SELECT id FROM kullanicilar WHERE username = ?').ge
 if (!adminVar) {
   const allPerms = JSON.stringify(ROLE_PERMISSIONS.admin);
   db.prepare('INSERT INTO kullanicilar (username, password_hash, rol, permissions) VALUES (?, ?, ?, ?)')
-    .run('admin', hashPassword('admin123'), 'admin', allPerms);
-  console.log('✅ Varsayılan admin kullanıcısı oluşturuldu: admin / admin123');
+    .run('admin', hashPassword(ADMIN_DEFAULT_PASSWORD), 'admin', allPerms);
+  console.log('✅ Varsayılan admin kullanıcısı oluşturuldu: admin');
 }
 
 // middleware
@@ -350,6 +408,15 @@ app.post('/api/logout', (req, res) => {
   res.json({ mesaj: t(getLang(req), 'logoutOk') });
 });
 
+// public config (auth gerektirmez — login ekranı için)
+app.get('/api/config', (req, res) => {
+  res.json({
+    companyName: COMPANY_NAME,
+    companySlug: COMPANY_SLUG,
+    appUrl: APP_URL
+  });
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(uploadsDir));
 
@@ -357,11 +424,11 @@ app.use('/uploads', express.static(uploadsDir));
 const swaggerDoc = {
   openapi: '3.0.0',
   info: {
-    title: 'ESA MODA API',
+    title: COMPANY_NAME + ' API',
     version: '1.0.0',
-    description: 'Fiyat Takip Sistemi - Tüm endpoint\'ler **x-auth-token** header\'ı gerektirir (login hariç).'
+    description: 'Fiyat Takip Sistemi (' + COMPANY_NAME + ') - Tüm endpoint\'ler **x-auth-token** header\'ı gerektirir (login hariç).'
   },
-  servers: [{ url: 'https://esamoda.fly.dev', description: 'Production' }],
+  servers: [{ url: APP_URL, description: 'Production' }],
   components: {
     securitySchemes: {
       token: { type: 'apiKey', in: 'header', name: 'x-auth-token', description: 'Login ile alınan token' }
@@ -468,6 +535,18 @@ const swaggerDoc = {
     },
     '/api/yedekle/excel': {
       get: { tags: ['Sistem'], summary: 'Tüm tablolar Excel formatında yedek', responses: { '200': { description: 'Excel yedek dosyası (.xlsx)' } } }
+    },
+    '/api/gelir-takip': {
+      get: { tags: ['Gelir Takip'], summary: 'Gelir takip listesi', parameters: [{ name: 'siparis_id', in: 'query', schema: { type: 'integer' } }], responses: { '200': { description: 'Liste' } } },
+      post: { tags: ['Gelir Takip'], summary: 'Yeni gelir takip ekle', responses: { '201': { description: 'Eklendi' } } }
+    },
+    '/api/gelir-takip/ozet': {
+      get: { tags: ['Gelir Takip'], summary: 'Gelir takip özeti', responses: { '200': { description: 'Özet istatistikler' } } }
+    },
+    '/api/gelir-takip/{id}': {
+      get: { tags: ['Gelir Takip'], summary: 'Tek kayıt getir', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }], responses: { '200': { description: 'Detay' } } },
+      put: { tags: ['Gelir Takip'], summary: 'Güncelle', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }], responses: { '200': { description: 'Güncellendi' } } },
+      delete: { tags: ['Gelir Takip'], summary: 'Sil', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }], responses: { '200': { description: 'Silindi' } } }
     }
   }
 };
@@ -486,6 +565,7 @@ app.use('/api/siparisler', requirePermission('siparisler'));
 app.use('/api/gerceklesen', requirePermission('gerceklesen'));
 app.use('/api/odemeler', requirePermission('odemeler'));
 app.use('/api/kullanicilar', requirePermission('kullanicilar'));
+app.use('/api/gelir-takip', requirePermission('gelir_takip'));
 
 // --- API ---
 
@@ -1037,7 +1117,7 @@ app.put('/api/siparisler/:id', siparisUpdateUpload, (req, res) => {
     return res.status(400).json({ hata: t(getLang(req), 'fiyatRequired') });
   }
 
-  const eski = db.prepare('SELECT gorsel, excel_dosya FROM siparisler WHERE id = ?').get(req.params.id);
+  const eski = db.prepare('SELECT gorsel, excel_dosya, durum FROM siparisler WHERE id = ?').get(req.params.id);
   if (!eski) return res.status(404).json({ hata: t(getLang(req), 'siparisNotFound') });
 
   let gorselYolu = eski.gorsel || '';
@@ -1082,6 +1162,31 @@ app.put('/api/siparisler/:id', siparisUpdateUpload, (req, res) => {
     req.params.id
   );
 
+  // gelir_takip: durum Tamamlandı'dan çıkarsa sil, Tamamlandı olursa ekle
+  const yeniDurum2 = durum || 'Hazırlanıyor';
+  const eskiDurum2 = eski.durum || '';
+  if ((eskiDurum2 || '').startsWith('Tamamland') && !(yeniDurum2 || '').startsWith('Tamamland')) {
+    db.prepare('DELETE FROM gelir_takip WHERE siparis_id = ?').run(req.params.id);
+  }
+  if (!(eskiDurum2 || '').startsWith('Tamamland') && (yeniDurum2 || '').startsWith('Tamamland')) {
+    const mevcut = db.prepare('SELECT id FROM gelir_takip WHERE siparis_id = ?').get(req.params.id);
+    if (!mevcut) {
+      const gerc = db.prepare('SELECT satis_toplam FROM gerceklesen WHERE siparis_id = ?').get(req.params.id);
+      const satisToplam = gerc ? (gerc.satis_toplam || ((fiyat || 0) * (miktar || 1))) : ((fiyat || 0) * (miktar || 1));
+      db.prepare(`
+        INSERT INTO gelir_takip (siparis_id, musteri_adi, firma_adi, urun_aciklamasi, toplam_tutar, para_birimi)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).run(
+        req.params.id,
+        firma_adi || '',
+        firma_adi || '',
+        urun_aciklamasi,
+        satisToplam,
+        para_birimi || 'TL'
+      );
+    }
+  }
+
   res.json({ mesaj: t(getLang(req), 'siparisUpdated') });
 });
 
@@ -1100,8 +1205,42 @@ app.delete('/api/siparisler/:id', (req, res) => {
 app.patch('/api/siparisler/:id/durum', (req, res) => {
   const { durum } = req.body;
   if (!durum) return res.status(400).json({ hata: 'durum zorunludur' });
+
+  const lang = getLang(req);
+  const siparis = db.prepare('SELECT * FROM siparisler WHERE id = ?').get(req.params.id);
+  if (!siparis) return res.status(404).json({ hata: t(lang, 'siparisNotFound') });
+
+  const eskiDurum = siparis.durum;
   db.prepare('UPDATE siparisler SET durum=? WHERE id=?').run(durum, req.params.id);
-  res.json({ mesaj: t(getLang(req), 'siparisStatusUpdated') });
+
+  // Auto-create gelir_takip when order is marked as Tamamlandı
+  // use startsWith to avoid Turkish character encoding issues
+  if ((durum || '').startsWith('Tamamland') && !(eskiDurum || '').startsWith('Tamamland')) {
+    const mevcut = db.prepare('SELECT id FROM gelir_takip WHERE siparis_id = ?').get(req.params.id);
+    if (!mevcut) {
+      // gerçekleşen kaydından satış toplamını al
+      const gerc = db.prepare('SELECT satis_toplam FROM gerceklesen WHERE siparis_id = ?').get(req.params.id);
+      const satisToplam = gerc ? (gerc.satis_toplam || (siparis.fiyat * (siparis.miktar || 1))) : (siparis.fiyat * (siparis.miktar || 1));
+      db.prepare(`
+        INSERT INTO gelir_takip (siparis_id, musteri_adi, firma_adi, urun_aciklamasi, toplam_tutar, para_birimi)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).run(
+        siparis.id,
+        siparis.firma_adi,
+        siparis.firma_adi,
+        siparis.urun_aciklamasi,
+        satisToplam,
+        siparis.para_birimi
+      );
+    }
+  }
+
+  // Auto-delete gelir_takip when order leaves Tamamlandı
+  if ((eskiDurum || '').startsWith('Tamamland') && !(durum || '').startsWith('Tamamland')) {
+    db.prepare('DELETE FROM gelir_takip WHERE siparis_id = ?').run(req.params.id);
+  }
+
+  res.json({ mesaj: t(lang, 'siparisStatusUpdated') });
 });
 
 // siparişi geri al (Tamamlandı → Üretimde)
@@ -1111,11 +1250,11 @@ app.post('/api/siparisler/:id/geri-al', (req, res) => {
 
   db.prepare('UPDATE siparisler SET durum = ? WHERE id = ?').run('Üretimde', req.params.id);
 
-  // varsa bağlı gerçekleşen kaydını sil
-  const gerceklesen = db.prepare('SELECT id FROM gerceklesen WHERE siparis_id = ?').get(req.params.id);
-  if (gerceklesen) {
-    db.prepare('DELETE FROM gerceklesen WHERE siparis_id = ?').run(req.params.id);
-  }
+  // gerçekleşen kaydı korunur (maliyet verileri silinmez) - sadece durum güncellenir
+  db.prepare('UPDATE gerceklesen SET durum = ? WHERE siparis_id = ?').run('Üretimde', req.params.id);
+
+  // varsa bağlı gelir_takip kaydını sil
+  db.prepare('DELETE FROM gelir_takip WHERE siparis_id = ?').run(req.params.id);
 
   res.json({ mesaj: t(getLang(req), 'siparisReverted') });
 });
@@ -1139,19 +1278,25 @@ app.get('/api/gerceklesen/:id', (req, res) => {
 
 // siparişe ait aksesuarları listele
 app.get('/api/siparisler/:id/aksesuar', (req, res) => {
-  const rows = db.prepare('SELECT * FROM aksesuar_takip WHERE siparis_id = ? ORDER BY created_at ASC').all(req.params.id);
+  const renk = req.query.renk;
+  let rows;
+  if (renk !== undefined && renk !== '') {
+    rows = db.prepare('SELECT * FROM aksesuar_takip WHERE siparis_id = ? AND renk = ? ORDER BY created_at ASC').all(req.params.id, renk);
+  } else {
+    rows = db.prepare('SELECT * FROM aksesuar_takip WHERE siparis_id = ? ORDER BY created_at ASC').all(req.params.id);
+  }
   res.json(rows);
 });
 
 // yeni aksesuar ekle
 app.post('/api/siparisler/:id/aksesuar', (req, res) => {
-  const { aksesuar_adi, siparis_adet, gelen_adet, birim_fiyat, notlar, fatura } = req.body;
+  const { aksesuar_adi, siparis_adet, gelen_adet, birim_fiyat, notlar, fatura, renk } = req.body;
   if (!aksesuar_adi) return res.status(400).json({ hata: t(getLang(req), 'aksesuarRequired') });
 
   const info = db.prepare(`
-    INSERT INTO aksesuar_takip (siparis_id, aksesuar_adi, siparis_adet, gelen_adet, birim_fiyat, notlar, fatura, gelen_detay)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(req.params.id, aksesuar_adi, siparis_adet || 0, gelen_adet || 0, birim_fiyat || 0, notlar || '', fatura || '', '[]');
+    INSERT INTO aksesuar_takip (siparis_id, aksesuar_adi, siparis_adet, gelen_adet, birim_fiyat, notlar, fatura, gelen_detay, renk)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(req.params.id, aksesuar_adi, siparis_adet || 0, gelen_adet || 0, birim_fiyat || 0, notlar || '', fatura || '', '[]', renk || '');
 
   res.status(201).json({ id: info.lastInsertRowid, mesaj: t(getLang(req), 'aksesuarCreated') });
 });
@@ -1201,7 +1346,13 @@ app.delete('/api/aksesuar/:id', (req, res) => {
 
 // siparişe ait kumaşları listele
 app.get('/api/siparisler/:id/kumas', (req, res) => {
-  const rows = db.prepare('SELECT * FROM kumas_takip WHERE siparis_id = ? ORDER BY created_at ASC').all(req.params.id);
+  const renk = req.query.renk;
+  let rows;
+  if (renk !== undefined && renk !== '') {
+    rows = db.prepare('SELECT * FROM kumas_takip WHERE siparis_id = ? AND renk = ? ORDER BY created_at ASC').all(req.params.id, renk);
+  } else {
+    rows = db.prepare('SELECT * FROM kumas_takip WHERE siparis_id = ? ORDER BY created_at ASC').all(req.params.id);
+  }
   res.json(rows);
 });
 
@@ -1368,7 +1519,7 @@ async function generateKumasSiparisFormu(res, kumas, overrides = {}) {
 
   // --- Üst Bilgi Alanı (2 sütun) ---
   const bilgiler = [
-    ['MÜŞTERİ', overrides.musteri || 'ESA MODA', 'SİPARİŞ ADI', overrides.siparis_adi || kumas.urun_aciklamasi || ''],
+    ['MÜŞTERİ', overrides.musteri || COMPANY_NAME, 'SİPARİŞ ADI', overrides.siparis_adi || kumas.urun_aciklamasi || ''],
     ['SİPARİŞİ GEÇEN', overrides.siparisi_gecen || '', 'SATICI FİRMA', overrides.satici_firma || ''],
     ['FİRMA YETKİLİSİ', overrides.firma_yetkilisi || '', 'SİPARİŞ TARİHİ', overrides.siparis_tarihi || today],
   ];
@@ -1618,6 +1769,22 @@ app.post('/api/gerceklesen', (req, res) => {
     siparis.termin || ''
   );
 
+  // Auto-create gelir_takip entry
+  const gelirMevcut = db.prepare('SELECT id FROM gelir_takip WHERE siparis_id = ?').get(siparis.id);
+  if (!gelirMevcut) {
+    db.prepare(`
+      INSERT INTO gelir_takip (siparis_id, musteri_adi, firma_adi, urun_aciklamasi, toplam_tutar, para_birimi)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(
+      siparis.id,
+      siparis.musteri_adi,
+      siparis.firma_adi,
+      siparis.urun_aciklamasi,
+      siparis.fiyat * (siparis.miktar || 1),
+      siparis.para_birimi
+    );
+  }
+
   res.status(201).json({ id: info.lastInsertRowid, mesaj: t(getLang(req), 'gerceklesenCreated') });
 });
 
@@ -1625,7 +1792,7 @@ app.post('/api/gerceklesen', (req, res) => {
 app.put('/api/gerceklesen/:id', excelUpload.single('excel_dosya'), (req, res) => {
   const { musteri_adi, firma_adi, urun_aciklamasi, fiyat, para_birimi, miktar,
           kesim_adedi, yuklenen_adet, ikinci_kalite, kumas_bedeli, aksesuar_bedeli, iscilik_bedeli, satis_toplam, termin,
-          yuklenen_adet_detay, satis_toplam_detay, kumas_bedeli_detay, aksesuar_bedeli_detay, iscilik_bedeli_detay, baski_nakis_yikama, baski_nakis_yikama_detay } = req.body;
+          yuklenen_adet_detay, satis_toplam_detay, kumas_bedeli_detay, aksesuar_bedeli_detay, iscilik_bedeli_detay, baski_nakis_yikama, baski_nakis_yikama_detay, paketleme_bedeli, nakliye_bedeli } = req.body;
 
   if (!musteri_adi || !urun_aciklamasi || fiyat == null) {
     return res.status(400).json({ hata: t(getLang(req), 'fiyatRequired') });
@@ -1648,7 +1815,7 @@ app.put('/api/gerceklesen/:id', excelUpload.single('excel_dosya'), (req, res) =>
     UPDATE gerceklesen
     SET musteri_adi=?, firma_adi=?, urun_aciklamasi=?, fiyat=?, para_birimi=?, miktar=?,
         kesim_adedi=?, yuklenen_adet=?, ikinci_kalite=?, kumas_bedeli=?, aksesuar_bedeli=?, iscilik_bedeli=?, satis_toplam=?, termin=?, excel_dosya=?,
-        yuklenen_adet_detay=?, satis_toplam_detay=?, kumas_bedeli_detay=?, aksesuar_bedeli_detay=?, iscilik_bedeli_detay=?, baski_nakis_yikama=?, baski_nakis_yikama_detay=?
+        yuklenen_adet_detay=?, satis_toplam_detay=?, kumas_bedeli_detay=?, aksesuar_bedeli_detay=?, iscilik_bedeli_detay=?, baski_nakis_yikama=?, baski_nakis_yikama_detay=?, paketleme_bedeli=?, nakliye_bedeli=?
     WHERE id=?
   `).run(
     musteri_adi,
@@ -1673,6 +1840,8 @@ app.put('/api/gerceklesen/:id', excelUpload.single('excel_dosya'), (req, res) =>
     iscilik_bedeli_detay || '[]',
     baski_nakis_yikama || 0,
     baski_nakis_yikama_detay || '[]',
+    paketleme_bedeli || 0,
+    nakliye_bedeli || 0,
     req.params.id
   );
 
@@ -1797,9 +1966,9 @@ app.get('/api/odemeler/haftalik', (req, res) => {
   const bugun = new Date();
   const bugunStr = bugun.toISOString().split('T')[0];
 
-  // bekleyen tüm ödemeleri getir
+  // bekleyen + geciken ödemeleri getir (gecikenler "Gecikti" durumuna çevrildiği için onları da kat)
   const rows = db.prepare(
-    "SELECT * FROM odemeler WHERE durum = 'Bekliyor' ORDER BY vade_tarihi ASC"
+    "SELECT * FROM odemeler WHERE durum IN ('Bekliyor','Gecikti') ORDER BY vade_tarihi ASC"
   ).all();
 
   // en uzak vadeye göre hafta sayısını hesapla
@@ -1827,7 +1996,8 @@ app.get('/api/odemeler/haftalik', (req, res) => {
   const gecikmis = [];
 
   rows.forEach(row => {
-    if (row.vade_tarihi < bugunStr) {
+    // "Gecikti" durumundaki kayıtları her durumda gecikmiş kutusuna at, vade geçmişse de gecikmiş
+    if (row.durum === 'Gecikti' || row.vade_tarihi < bugunStr) {
       gecikmis.push(row);
       return;
     }
@@ -1855,6 +2025,450 @@ app.get('/api/odemeler/haftalik', (req, res) => {
   });
 });
 
+// haftalık birleşik gelir-gider görünümü
+app.get('/api/odemeler/haftalik-birlestir', (req, res) => {
+  const bugun = new Date();
+  const bugunStr = bugun.toISOString().split('T')[0];
+
+  // tüm ödemeleri getir (tüm durumlar, geçmiş görünsün diye)
+  const odemeler = db.prepare(
+    'SELECT id, firma_adi, odeme_turu, tutar, para_birimi, vade_tarihi, durum, cek_no, banka FROM odemeler ORDER BY vade_tarihi ASC'
+  ).all();
+
+  // tüm gelirleri getir
+  const gelirler = db.prepare(
+    'SELECT id, musteri_adi, firma_adi, toplam_tutar, nakit_tutar, cek_toplam, tarih FROM gelir_takip ORDER BY tarih ASC'
+  ).all();
+
+  // tarih aralığını belirle
+  let minDate = bugunStr;
+  let maxDate = bugunStr;
+
+  odemeler.forEach(o => {
+    if (o.vade_tarihi && o.vade_tarihi < minDate) minDate = o.vade_tarihi;
+    if (o.vade_tarihi && o.vade_tarihi > maxDate) maxDate = o.vade_tarihi;
+  });
+
+  gelirler.forEach(g => {
+    if (g.tarih && g.tarih < minDate) minDate = g.tarih;
+    if (g.tarih && g.tarih > maxDate) maxDate = g.tarih;
+  });
+
+  // en az 8 hafta ileriyi göster, en fazla 52 hafta geriyi
+  const sonTarih = new Date(maxDate);
+  const ileriHafta = Math.ceil((sonTarih - bugun) / (7 * 24 * 60 * 60 * 1000));
+  const haftaIleri = Math.max(ileriHafta + 2, 8);
+
+  const minDateObj = new Date(minDate);
+  const geriHafta = Math.ceil((bugun - minDateObj) / (7 * 24 * 60 * 60 * 1000));
+  const haftaGeri = Math.min(geriHafta + 1, 52);
+
+  // pazartesi tabanlı hafta dizisi oluştur
+  const haftalar = [];
+  const baslangicBugun = new Date(bugun);
+  baslangicBugun.setDate(bugun.getDate() - bugun.getDay() + 1 - (haftaGeri * 7)); // haftaGeri hafta öncesinin pazartesisi
+
+  const toplamHafta = haftaGeri + haftaIleri;
+  for (let i = 0; i < toplamHafta; i++) {
+    const baslangic = new Date(baslangicBugun);
+    baslangic.setDate(baslangicBugun.getDate() + (i * 7));
+    const bitis = new Date(baslangic);
+    bitis.setDate(baslangic.getDate() + 6);
+
+    haftalar.push({
+      baslangic: baslangic.toISOString().split('T')[0],
+      bitis: bitis.toISOString().split('T')[0],
+      gelir_kayitlari: [],
+      gider_kayitlari: [],
+      gelir_toplam: 0,
+      gider_toplam: 0,
+      bakiye: 0
+    });
+  }
+
+  // ödemeleri haftalara dağıt
+  odemeler.forEach(o => {
+    if (!o.vade_tarihi) return;
+    for (const h of haftalar) {
+      if (o.vade_tarihi >= h.baslangic && o.vade_tarihi <= h.bitis) {
+        h.gider_kayitlari.push(o);
+        h.gider_toplam += o.tutar;
+        break;
+      }
+    }
+  });
+
+  // gelirleri haftalara dağıt
+  gelirler.forEach(g => {
+    if (!g.tarih) return;
+    for (const h of haftalar) {
+      if (g.tarih >= h.baslangic && g.tarih <= h.bitis) {
+        h.gelir_kayitlari.push(g);
+        h.gelir_toplam += g.toplam_tutar || 0;
+        break;
+      }
+    }
+  });
+
+  // bakiyeleri hesapla
+  haftalar.forEach(h => {
+    h.bakiye = h.gelir_toplam - h.gider_toplam;
+  });
+
+  // geçmiş ve gelecek haftaları ayır
+  const gecmis_haftalar = haftalar.filter(h => h.bitis < bugunStr);
+  const gelecek_haftalar = haftalar.filter(h => h.bitis >= bugunStr);
+
+  // özet
+  const toplam_gelir = gelirler.reduce((s, g) => s + (g.toplam_tutar || 0), 0);
+  const toplam_gider = odemeler.reduce((s, o) => s + o.tutar, 0);
+
+  res.json({
+    bugun: bugunStr,
+    gecmis_haftalar,
+    gelecek_haftalar,
+    haftalar,
+    ozet: {
+      toplam_gelir,
+      toplam_gider,
+      net_bakiye: toplam_gelir - toplam_gider
+    }
+  });
+});
+
+// aylık birleşik gelir-gider görünümü
+app.get('/api/odemeler/aylik-birlestir', (req, res) => {
+  const bugun = new Date();
+  const bugunStr = bugun.toISOString().split('T')[0];
+  const buAy = bugun.getMonth();
+  const buYil = bugun.getFullYear();
+
+  // tüm ödemeleri getir
+  const odemeler = db.prepare(
+    'SELECT id, firma_adi, odeme_turu, tutar, para_birimi, vade_tarihi, durum, cek_no, banka, ana_para, faiz_tutari, bsmv_tutari FROM odemeler ORDER BY vade_tarihi ASC'
+  ).all();
+
+  // tüm gelirleri getir (çek detaylarıyla + TFS)
+  const gelirler = db.prepare(
+    'SELECT id, musteri_adi, firma_adi, toplam_tutar, nakit_tutar, cek_toplam, cek_detay, tarih, odeme_turu, tfs_detay FROM gelir_takip ORDER BY tarih ASC'
+  ).all();
+
+  // çekleri kendi vade tarihlerine göre ayrıştır
+  const gelirCekleri = [];
+  gelirler.forEach(g => {
+    if (g.cek_toplam > 0) {
+      let cekler = [];
+      try { cekler = typeof g.cek_detay === 'string' ? JSON.parse(g.cek_detay) : (g.cek_detay || []); } catch(e) { cekler = []; }
+      if (!Array.isArray(cekler)) cekler = [];
+      cekler.forEach(c => {
+        if (c.tutar > 0) {
+          // teminata verilmiş ve kredi kullanılmışsa
+          if (c.durum === 'teminata_verildi' && c.kredi_tutar > 0 && c.el_gecis_tarihi) {
+            const netTutar = c.net_el_gecen || (c.kredi_tutar - (c.kredi_faiz || 0) - (c.teminat_masraf || 0));
+            // 1) Kredi net tutarı eline geçiş tarihinde
+            if (netTutar > 0) {
+              gelirCekleri.push({
+                gelir_id: g.id,
+                musteri_adi: g.musteri_adi,
+                firma_adi: g.firma_adi,
+                tutar: netTutar,
+                vade_tarihi: c.el_gecis_tarihi,
+                durum: c.durum,
+                banka: c.banka || '',
+                cek_no: c.cek_no || '',
+                aciklama: 'Kredi (net)'
+              });
+            }
+            // 2) Kalan tutar (çek - kredi_tutar) çekin kendi vadesinde
+            const kalan = c.tutar - c.kredi_tutar;
+            if (kalan > 0 && c.vade_tarihi) {
+              gelirCekleri.push({
+                gelir_id: g.id,
+                musteri_adi: g.musteri_adi,
+                firma_adi: g.firma_adi,
+                tutar: kalan,
+                vade_tarihi: c.vade_tarihi,
+                durum: c.durum,
+                banka: c.banka || '',
+                cek_no: c.cek_no || '',
+                aciklama: 'Kredi sonrası kalan'
+              });
+            }
+          } else if (c.vade_tarihi) {
+            // normal çek: kendi vade tarihi ve tutarı
+            gelirCekleri.push({
+              gelir_id: g.id,
+              musteri_adi: g.musteri_adi,
+              firma_adi: g.firma_adi,
+              tutar: c.tutar,
+              vade_tarihi: c.vade_tarihi,
+              durum: c.durum || 'bekliyor',
+              banka: c.banka || '',
+              cek_no: c.cek_no || ''
+            });
+          }
+        }
+      });
+    }
+  });
+
+  // tarih aralığını belirle (çek vade tarihlerini de hesaba kat)
+  let minDate = bugunStr;
+  let maxDate = bugunStr;
+
+  odemeler.forEach(o => {
+    if (o.vade_tarihi && o.vade_tarihi < minDate) minDate = o.vade_tarihi;
+    if (o.vade_tarihi && o.vade_tarihi > maxDate) maxDate = o.vade_tarihi;
+  });
+
+  gelirler.forEach(g => {
+    if (g.tarih && g.tarih < minDate) minDate = g.tarih;
+    if (g.tarih && g.tarih > maxDate) maxDate = g.tarih;
+  });
+
+  gelirCekleri.forEach(c => {
+    if (c.vade_tarihi && c.vade_tarihi < minDate) minDate = c.vade_tarihi;
+    if (c.vade_tarihi && c.vade_tarihi > maxDate) maxDate = c.vade_tarihi;
+  });
+
+  // en az 12 ay ileriyi, en fazla 24 ay geriyi göster
+  const minDateObj = new Date(minDate);
+  const maxDateObj = new Date(maxDate);
+
+  const baslangicYil = minDateObj.getFullYear();
+  const baslangicAy = minDateObj.getMonth();
+  const bitisYil = Math.max(maxDateObj.getFullYear(), buYil + 1);
+  const bitisAy = Math.max(maxDateObj.getMonth(), buAy + 1);
+
+  // ay dizisi oluştur
+  const aylar = [];
+  let y = baslangicYil;
+  let a = baslangicAy;
+  const toplamAy = (bitisYil - baslangicYil) * 12 + (bitisAy - baslangicAy) + 2;
+  const maxGeriAy = 24;
+
+  for (let i = 0; i < Math.min(toplamAy, maxGeriAy + 12); i++) {
+    const bStr = y + '-' + String(a + 1).padStart(2, '0') + '-01';
+    const sonGun = new Date(y, a + 1, 0).getDate();
+    const btStr = y + '-' + String(a + 1).padStart(2, '0') + '-' + String(sonGun).padStart(2, '0');
+    aylar.push({
+      baslangic: bStr,
+      bitis: btStr,
+      ay: a + 1,
+      yil: y,
+      gelir_kayitlari: [],
+      gider_kayitlari: [],
+      gelir_toplam: 0,
+      gider_toplam: 0,
+      genel_gider_toplam: 0,
+      bakiye: 0
+    });
+    a++;
+    if (a > 11) { a = 0; y++; }
+  }
+
+  // ödemeleri aylara dağıt
+  odemeler.forEach(o => {
+    if (!o.vade_tarihi) return;
+    for (const h of aylar) {
+      if (o.vade_tarihi >= h.baslangic && o.vade_tarihi <= h.bitis) {
+        h.gider_kayitlari.push(o);
+        h.gider_toplam += o.tutar;
+        break;
+      }
+    }
+  });
+
+  // gelirleri aylara dağıt (çekler kendi vade tarihine göre, TFS bölünmüş)
+  gelirler.forEach(g => {
+    // TFS varsa: TFS kısmı TFS tarihinde, kalan vade tarihinde
+    if (g.odeme_turu === 'Vadeli Ödeme') {
+      let tfsler = [];
+      try { tfsler = typeof g.tfs_detay === 'string' ? JSON.parse(g.tfs_detay) : (g.tfs_detay || []); } catch(e) { tfsler = []; }
+      if (!Array.isArray(tfsler)) tfsler = [];
+      let toplamTfs = 0;
+      tfsler.forEach(t => {
+        if (t.tfs_tarihi && t.net_tutar > 0) {
+          for (const h of aylar) {
+            if (t.tfs_tarihi >= h.baslangic && t.tfs_tarihi <= h.bitis) {
+              h.gelir_kayitlari.push({
+                id: g.id,
+                musteri_adi: g.musteri_adi,
+                firma_adi: g.firma_adi,
+                toplam_tutar: t.net_tutar,
+                nakit_tutar: t.net_tutar,
+                tarih: t.tfs_tarihi
+              });
+              h.gelir_toplam += t.net_tutar;
+              break;
+            }
+          }
+          toplamTfs += (t.net_tutar || 0) + (t.komisyon || 0);
+        }
+      });
+      // kalan kısım vade tarihinde
+      const kalan = (g.nakit_tutar || g.toplam_tutar || 0) - toplamTfs;
+      if (kalan > 0 && g.tarih) {
+        for (const h of aylar) {
+          if (g.tarih >= h.baslangic && g.tarih <= h.bitis) {
+            h.gelir_kayitlari.push({
+              id: g.id,
+              musteri_adi: g.musteri_adi,
+              firma_adi: g.firma_adi,
+              toplam_tutar: kalan,
+              nakit_tutar: kalan,
+              tarih: g.tarih
+            });
+            h.gelir_toplam += kalan;
+            break;
+          }
+        }
+      }
+      return; // bu gelir kaydı işlendi
+    }
+
+    // nakit kısmı kaydın kendi tarihine
+    const nakitTutar = g.nakit_tutar || 0;
+    if (nakitTutar > 0 && g.tarih) {
+      for (const h of aylar) {
+        if (g.tarih >= h.baslangic && g.tarih <= h.bitis) {
+          // nakit kısmı için sanal kayıt
+          h.gelir_kayitlari.push({
+            id: g.id,
+            musteri_adi: g.musteri_adi,
+            firma_adi: g.firma_adi,
+            toplam_tutar: nakitTutar,
+            nakit_tutar: nakitTutar,
+            cek_toplam: 0,
+            tarih: g.tarih
+          });
+          h.gelir_toplam += nakitTutar;
+          break;
+        }
+      }
+    }
+  });
+
+  // çekleri kendi vade tarihlerine göre dağıt
+  gelirCekleri.forEach(c => {
+    for (const h of aylar) {
+      if (c.vade_tarihi >= h.baslangic && c.vade_tarihi <= h.bitis) {
+        // çek için sanal kayıt
+        h.gelir_kayitlari.push({
+          id: c.gelir_id,
+          musteri_adi: c.musteri_adi,
+          firma_adi: c.firma_adi,
+          toplam_tutar: c.tutar,
+          nakit_tutar: 0,
+          cek_toplam: c.tutar,
+          tarih: c.vade_tarihi
+        });
+        h.gelir_toplam += c.tutar;
+        break;
+      }
+    }
+  });
+
+  // bakiyeleri hesapla
+  aylar.forEach(h => {
+    h.bakiye = h.gelir_toplam - h.gider_toplam;
+    // genel gider: Kredi Kartı, Kira, Maaş, Vergi
+    h.genel_gider_toplam = h.gider_kayitlari
+      .filter(o => o.odeme_turu === 'Kredi Kartı' || o.odeme_turu === 'Kira' || o.odeme_turu === 'Maaş' || o.odeme_turu === 'Vergi')
+      .reduce((s, o) => s + o.tutar, 0);
+  });
+
+  // bu ayı bul (yerel saatle)
+  const buAyStr = buYil + '-' + String(buAy + 1).padStart(2, '0') + '-01';
+
+  // geçmiş ve gelecek ayları ayır
+  const gecmis_aylar = aylar.filter(h => h.baslangic < buAyStr);
+  const gelecek_aylar = aylar.filter(h => h.baslangic >= buAyStr);
+
+  // özet
+  const toplam_gelir = gelirler.reduce((s, g) => s + (g.toplam_tutar || 0), 0);
+  const toplam_gider = odemeler.reduce((s, o) => s + o.tutar, 0);
+
+  res.json({
+    bugun: bugunStr,
+    buAy: buAyStr,
+    gecmis_aylar,
+    gelecek_aylar,
+    aylar,
+    ozet: {
+      toplam_gelir,
+      toplam_gider,
+      net_bakiye: toplam_gelir - toplam_gider
+    }
+  });
+});
+
+// genel gider yıllık toplamları (Kredi Kartı, Kira, Maaş, Vergi)
+app.get('/api/odemeler/genel-gider-yillik', (req, res) => {
+  const rows = db.prepare(`
+    SELECT vade_tarihi, tutar FROM odemeler
+    WHERE odeme_turu IN ('Kredi Kartı', 'Kira', 'Maaş', 'Vergi')
+  `).all();
+  const yillik = {};
+  rows.forEach(r => {
+    const yil = (r.vade_tarihi || '').substring(0, 4);
+    if (!yil || yil === '') return;
+    if (!yillik[yil]) yillik[yil] = 0;
+    yillik[yil] += r.tutar;
+  });
+  res.json(yillik);
+});
+
+// aylık kredi raporu (Banka Kredisi + Rotatif Kredi)
+app.get('/api/odemeler/kredi-aylik', (req, res) => {
+  const rows = db.prepare(`
+    SELECT * FROM odemeler
+    WHERE (odeme_turu = 'Banka Kredisi' OR odeme_turu = 'Rotatif Kredi')
+      AND vade_tarihi >= '2024-12-01'
+    ORDER BY vade_tarihi ASC
+  `).all();
+
+  // aya göre grupla
+  const aylik = {};
+  rows.forEach(r => {
+    if (!r.vade_tarihi) return;
+    const parts = r.vade_tarihi.split('-');
+    const key = parts[0] + '-' + parts[1]; // YYYY-MM
+    if (!aylik[key]) {
+      aylik[key] = {
+        yil: parseInt(parts[0]),
+        ay: parseInt(parts[1]),
+        ana_para: 0,
+        faiz_tutari: 0,
+        bsmv_tutari: 0,
+        toplam_tutar: 0,
+        adet: 0,
+        odemeler: []
+      };
+    }
+    aylik[key].ana_para += (r.ana_para || 0);
+    aylik[key].faiz_tutari += (r.faiz_tutari || 0);
+    aylik[key].bsmv_tutari += (r.bsmv_tutari || 0);
+    aylik[key].toplam_tutar += r.tutar;
+    aylik[key].adet++;
+    aylik[key].odemeler.push(r);
+  });
+
+  // sıralı dizi
+  const aylar = Object.values(aylik).sort((a, b) => a.yil !== b.yil ? a.yil - b.yil : a.ay - b.ay);
+
+  // toplamlar
+  const toplam = {
+    ana_para: aylar.reduce((s, a) => s + a.ana_para, 0),
+    faiz_tutari: aylar.reduce((s, a) => s + a.faiz_tutari, 0),
+    bsmv_tutari: aylar.reduce((s, a) => s + a.bsmv_tutari, 0),
+    toplam_tutar: aylar.reduce((s, a) => s + a.toplam_tutar, 0),
+    adet: aylar.reduce((s, a) => s + a.adet, 0)
+  };
+
+  res.json({ aylar, toplam });
+});
+
 // tek ödeme getir
 app.get('/api/odemeler/:id', (req, res) => {
   const row = db.prepare('SELECT * FROM odemeler WHERE id = ?').get(req.params.id);
@@ -1864,15 +2478,15 @@ app.get('/api/odemeler/:id', (req, res) => {
 
 // yeni ödeme ekle
 app.post('/api/odemeler', (req, res) => {
-  const { musteri_adi, firma_adi, odeme_turu, tutar, para_birimi, vade_tarihi, aciklama, cek_no, banka, cek_sahibi, kredi_grup_id } = req.body;
+  const { musteri_adi, firma_adi, odeme_turu, tutar, para_birimi, vade_tarihi, aciklama, cek_no, banka, cek_sahibi, kredi_grup_id, ana_para, faiz_tutari, bsmv_tutari } = req.body;
 
   if (!tutar || !vade_tarihi) {
     return res.status(400).json({ hata: t(getLang(req), 'odemeRequired') });
   }
 
   const stmt = db.prepare(`
-    INSERT INTO odemeler (musteri_adi, firma_adi, odeme_turu, tutar, para_birimi, vade_tarihi, aciklama, cek_no, banka, cek_sahibi, kredi_grup_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO odemeler (musteri_adi, firma_adi, odeme_turu, tutar, para_birimi, vade_tarihi, aciklama, cek_no, banka, cek_sahibi, kredi_grup_id, ana_para, faiz_tutari, bsmv_tutari)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const info = stmt.run(
@@ -1886,7 +2500,10 @@ app.post('/api/odemeler', (req, res) => {
     cek_no || '',
     banka || '',
     cek_sahibi || '',
-    kredi_grup_id || ''
+    kredi_grup_id || '',
+    ana_para || 0,
+    faiz_tutari || 0,
+    bsmv_tutari || 0
   );
 
   res.status(201).json({ id: info.lastInsertRowid, mesaj: t(getLang(req), 'odemeSaved') });
@@ -1894,7 +2511,7 @@ app.post('/api/odemeler', (req, res) => {
 
 // ödeme güncelle
 app.put('/api/odemeler/:id', (req, res) => {
-  const { musteri_adi, firma_adi, odeme_turu, tutar, para_birimi, vade_tarihi, aciklama, durum, cek_no, banka, cek_sahibi, kredi_grup_id } = req.body;
+  const { musteri_adi, firma_adi, odeme_turu, tutar, para_birimi, vade_tarihi, aciklama, durum, cek_no, banka, cek_sahibi, kredi_grup_id, ana_para, faiz_tutari, bsmv_tutari } = req.body;
 
   if (!tutar || !vade_tarihi) {
     return res.status(400).json({ hata: t(getLang(req), 'odemeRequired') });
@@ -1905,7 +2522,7 @@ app.put('/api/odemeler/:id', (req, res) => {
 
   db.prepare(`
     UPDATE odemeler
-    SET musteri_adi='', firma_adi=?, odeme_turu=?, tutar=?, para_birimi=?, vade_tarihi=?, aciklama=?, durum=?, cek_no=?, banka=?, cek_sahibi=?, kredi_grup_id=?
+    SET musteri_adi='', firma_adi=?, odeme_turu=?, tutar=?, para_birimi=?, vade_tarihi=?, aciklama=?, durum=?, cek_no=?, banka=?, cek_sahibi=?, kredi_grup_id=?, ana_para=?, faiz_tutari=?, bsmv_tutari=?
     WHERE id=?
   `).run(
     firma_adi || '',
@@ -1919,6 +2536,9 @@ app.put('/api/odemeler/:id', (req, res) => {
     banka || '',
     cek_sahibi || '',
     kredi_grup_id || '',
+    ana_para || 0,
+    faiz_tutari || 0,
+    bsmv_tutari || 0,
     req.params.id
   );
 
@@ -1990,13 +2610,204 @@ app.delete('/api/kullanicilar/:id', (req, res) => {
 db.prepare("UPDATE kullanicilar SET permissions = ? WHERE username = 'admin'")
   .run(JSON.stringify(ROLE_PERMISSIONS.admin));
 
+// --- GELİR TAKİP API ---
+
+// tüm gelir takip kayıtlarını listele
+app.get('/api/gelir-takip', (req, res) => {
+  const { siparis_id } = req.query;
+  let sql = 'SELECT * FROM gelir_takip WHERE 1=1';
+  const params = [];
+
+  if (siparis_id) { sql += ' AND siparis_id = ?'; params.push(siparis_id); }
+
+  sql += ' ORDER BY created_at DESC';
+  const rows = db.prepare(sql).all(...params);
+  res.json(rows);
+});
+
+// gelir takip özeti
+app.get('/api/gelir-takip/ozet', (req, res) => {
+  const rows = db.prepare('SELECT * FROM gelir_takip').all();
+  let toplamGelir = 0, toplamNakit = 0, toplamCek = 0, teminatCek = 0, kirdirilanCek = 0, netNakit = 0;
+
+  rows.forEach(r => {
+    toplamGelir += r.toplam_tutar || 0;
+    toplamNakit += r.nakit_tutar || 0;
+    toplamCek += r.cek_toplam || 0;
+
+    let cekler = [];
+    try { cekler = typeof r.cek_detay === 'string' ? JSON.parse(r.cek_detay) : (r.cek_detay || []); } catch(e) { cekler = []; }
+    if (!Array.isArray(cekler)) cekler = [];
+
+    cekler.forEach(c => {
+      const ct = c.tutar || 0;
+      if (c.durum === 'teminata_verildi') teminatCek += ct;
+      if (c.durum === 'kirdirildi') {
+        kirdirilanCek += ct;
+        netNakit += (c.net_tutar || 0);
+      }
+    });
+  });
+
+  res.json({
+    toplam_gelir: toplamGelir,
+    toplam_nakit: toplamNakit,
+    toplam_cek: toplamCek,
+    teminata_verilen: teminatCek,
+    kirdirilan_toplam: kirdirilanCek,
+    kirdirilan_net: netNakit,
+    net_eldeki: toplamNakit + netNakit
+  });
+});
+
+// tek gelir takip kaydı getir
+app.get('/api/gelir-takip/:id', (req, res) => {
+  const row = db.prepare('SELECT * FROM gelir_takip WHERE id = ?').get(req.params.id);
+  if (!row) return res.status(404).json({ hata: t(getLang(req), 'gelirTakipNotFound') });
+  res.json(row);
+});
+
+// yeni gelir takip kaydı ekle (manuel)
+app.post('/api/gelir-takip', (req, res) => {
+  const { siparis_id, musteri_adi, firma_adi, urun_aciklamasi, toplam_tutar, para_birimi, nakit_tutar, cek_toplam, cek_detay, notlar, odeme_turu, tarih } = req.body;
+
+  if (!musteri_adi) {
+    return res.status(400).json({ hata: 'musteri_adi zorunludur' });
+  }
+
+  // siparis_id varsa ve > 0 ise duplicate check yap
+  const sid = siparis_id || 0;
+  if (sid > 0) {
+    const mevcut = db.prepare('SELECT id FROM gelir_takip WHERE siparis_id = ?').get(sid);
+    if (mevcut) {
+      return res.status(409).json({ hata: t(getLang(req), 'gelirTakipExists'), id: mevcut.id });
+    }
+  }
+
+  const info = db.prepare(`
+    INSERT INTO gelir_takip (siparis_id, musteri_adi, firma_adi, urun_aciklamasi, toplam_tutar, para_birimi, nakit_tutar, cek_toplam, cek_detay, notlar, odeme_turu, tarih)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    sid, musteri_adi, firma_adi || '', urun_aciklamasi,
+    toplam_tutar || 0, para_birimi || 'TL', nakit_tutar || 0,
+    cek_toplam || 0, cek_detay || '[]', notlar || '', odeme_turu || '', tarih || ''
+  );
+
+  res.status(201).json({ id: info.lastInsertRowid, mesaj: t(getLang(req), 'gelirTakipCreated') });
+});
+
+// gelir takip güncelle
+app.put('/api/gelir-takip/:id', (req, res) => {
+  const { musteri_adi, firma_adi, urun_aciklamasi, toplam_tutar, para_birimi, nakit_tutar, cek_toplam, cek_detay, notlar, odeme_turu, tarih, tfs_detay } = req.body;
+
+  if (!musteri_adi) {
+    return res.status(400).json({ hata: t(getLang(req), 'siparisRequired') });
+  }
+
+  const eski = db.prepare('SELECT * FROM gelir_takip WHERE id = ?').get(req.params.id);
+  if (!eski) return res.status(404).json({ hata: t(getLang(req), 'gelirTakipNotFound') });
+
+  db.prepare(`
+    UPDATE gelir_takip
+    SET musteri_adi=?, firma_adi=?, urun_aciklamasi=?, toplam_tutar=?, para_birimi=?, nakit_tutar=?, cek_toplam=?, cek_detay=?, notlar=?, odeme_turu=?, tarih=?, tfs_detay=?
+    WHERE id=?
+  `).run(
+    musteri_adi,
+    firma_adi || '',
+    urun_aciklamasi,
+    toplam_tutar || 0,
+    para_birimi || 'TL',
+    nakit_tutar || 0,
+    cek_toplam || 0,
+    cek_detay || '[]',
+    notlar || '',
+    odeme_turu || '',
+    tarih || '',
+    tfs_detay || '[]',
+    req.params.id
+  );
+
+  res.json({ mesaj: t(getLang(req), 'gelirTakipUpdated') });
+});
+
+// haftalık çek vade görünümü
+app.get('/api/gelir-takip/haftalik', (req, res) => {
+  const rows = db.prepare('SELECT * FROM gelir_takip').all();
+  const bugun = new Date();
+  const bugunStr = bugun.toISOString().split('T')[0];
+
+  // tüm çekleri topla
+  const tumCekler = [];
+  rows.forEach(r => {
+    let cekler = [];
+    try { cekler = typeof r.cek_detay === 'string' ? JSON.parse(r.cek_detay) : (r.cek_detay || []); } catch(e) { cekler = []; }
+    if (!Array.isArray(cekler)) cekler = [];
+    cekler.forEach(c => {
+      if (c.vade_tarihi && c.tutar > 0) {
+        tumCekler.push({
+          gelir_id: r.id,
+          musteri_adi: r.musteri_adi,
+          tutar: c.tutar,
+          vade_tarihi: c.vade_tarihi,
+          banka: c.banka || '',
+          cek_no: c.cek_no || '',
+          durum: c.durum || 'bekliyor'
+        });
+      }
+    });
+  });
+
+  // en uzak vadeye göre hafta sayısı
+  const enUzak = tumCekler.reduce((max, c) => c.vade_tarihi > max ? c.vade_tarihi : max, bugunStr);
+  const sonTarih = new Date(enUzak);
+  const haftaFarki = Math.ceil((sonTarih - bugun) / (7 * 24 * 60 * 60 * 1000));
+  const haftaSayisi = Math.max(haftaFarki + 2, 8);
+
+  const haftalar = [];
+  for (let i = 0; i < haftaSayisi; i++) {
+    const baslangic = new Date(bugun);
+    baslangic.setDate(bugun.getDate() - bugun.getDay() + 1 + (i * 7));
+    const bitis = new Date(baslangic);
+    bitis.setDate(baslangic.getDate() + 6);
+    haftalar.push({ baslangic: baslangic.toISOString().split('T')[0], bitis: bitis.toISOString().split('T')[0], cekler: [], toplam_tutar: 0 });
+  }
+
+  const gecikmis = [];
+
+  tumCekler.forEach(c => {
+    if (c.vade_tarihi < bugunStr) { gecikmis.push(c); return; }
+    for (const h of haftalar) {
+      if (c.vade_tarihi >= h.baslangic && c.vade_tarihi <= h.bitis) {
+        h.cekler.push(c);
+        h.toplam_tutar += c.tutar;
+        break;
+      }
+    }
+  });
+
+  res.json({
+    haftalar,
+    gecikmis,
+    gecikmis_toplam: gecikmis.reduce((s, c) => s + c.tutar, 0),
+    bugun: bugunStr
+  });
+});
+
+// gelir takip sil
+app.delete('/api/gelir-takip/:id', (req, res) => {
+  const eski = db.prepare('SELECT * FROM gelir_takip WHERE id = ?').get(req.params.id);
+  if (!eski) return res.status(404).json({ hata: t(getLang(req), 'gelirTakipNotFound') });
+  db.prepare('DELETE FROM gelir_takip WHERE id = ?').run(req.params.id);
+  res.json({ mesaj: t(getLang(req), 'gelirTakipDeleted') });
+});
+
 // --- yedekleme ---
 
 // Tam yedek: veritabanı + uploads + bant verileri (tar.gz)
 app.get('/api/yedekle', (req, res) => {
   const tarih = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
   res.setHeader('Content-Type', 'application/gzip');
-  res.setHeader('Content-Disposition', `attachment; filename="esamoda-tam-yedek-${tarih}.tar.gz"`);
+  res.setHeader('Content-Disposition', `attachment; filename="${COMPANY_SLUG}-tam-yedek-${tarih}.tar.gz"`);
 
   // Veritabanını yedekle (WAL checkpoint)
   db.pragma('wal_checkpoint(TRUNCATE)');
@@ -2036,6 +2847,7 @@ app.get('/api/yedekle/excel', async (req, res) => {
       { name: 'Kumaş Takip', query: 'SELECT * FROM kumas_takip ORDER BY siparis_id, created_at ASC' },
       { name: 'Kullanıcılar', query: 'SELECT id, username, rol, permissions, created_at FROM kullanicilar ORDER BY id ASC' },
       { name: 'Oturumlar', query: 'SELECT * FROM sessions ORDER BY created_at DESC' },
+      { name: 'Gelir Takip', query: 'SELECT * FROM gelir_takip ORDER BY created_at DESC' },
     ];
 
     for (const tablo of tablolar) {
@@ -2067,7 +2879,7 @@ app.get('/api/yedekle/excel', async (req, res) => {
     }
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename="esamoda-excel-yedek-${tarih}.xlsx"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${COMPANY_SLUG}-excel-yedek-${tarih}.xlsx"`);
     await workbook.xlsx.write(res);
     res.end();
   } catch (e) {
@@ -2077,7 +2889,7 @@ app.get('/api/yedekle/excel', async (req, res) => {
 
 // --- başlat ---
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`✅ Fiyat Takip Sistemi çalışıyor → http://localhost:${PORT}`);
+  console.log(`✅ ${COMPANY_NAME} - Fiyat Takip Sistemi çalışıyor → http://localhost:${PORT}`);
   console.log(`📡 Ağdaki diğer bilgisayarlar için → http://${getLocalIP()}:${PORT}`);
 });
 

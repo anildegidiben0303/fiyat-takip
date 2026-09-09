@@ -1,5 +1,5 @@
 // ============================================
-// ESA MODA - Server-side Çeviri Sözlüğü (TR/EN)
+// Fiyat Takip - Server-side Çeviri Sözlüğü (TR/EN)
 // ============================================
 
 const TR = {
@@ -91,6 +91,13 @@ const TR = {
   // Logout
   logoutOk: 'Çıkış yapıldı',
 
+  // Gelir Takip
+  gelirTakipCreated: 'Gelir takip kaydı oluşturuldu',
+  gelirTakipUpdated: 'Gelir takip güncellendi',
+  gelirTakipDeleted: 'Silindi',
+  gelirTakipNotFound: 'Gelir takip kaydı bulunamadı',
+  gelirTakipExists: 'Bu sipariş için zaten gelir takip kaydı mevcut',
+
   // Ek
   siparisAktarildi: 'Siparişe aktarıldı',
   bulunamadi: 'Bulunamadı',
@@ -174,6 +181,13 @@ const EN = {
   backupFailed: 'Backup failed',
 
   logoutOk: 'Logged out',
+
+  // Revenue Tracking
+  gelirTakipCreated: 'Revenue tracking record created',
+  gelirTakipUpdated: 'Revenue tracking updated',
+  gelirTakipDeleted: 'Deleted',
+  gelirTakipNotFound: 'Revenue tracking record not found',
+  gelirTakipExists: 'Revenue tracking record already exists for this order',
 
   // Extra
   siparisAktarildi: 'Transferred to orders',
