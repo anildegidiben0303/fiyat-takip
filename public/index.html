@@ -617,6 +617,7 @@
   <button class="tab-btn" id="tabBtnGerceklesen" data-tab="gerceklesen" data-permission="gerceklesen">💰 Gerçekleşen <span class="badge" id="gerceklesenCount">0</span></button>
   <button class="tab-btn" id="tabBtnOdemeler" data-tab="odemeler" data-permission="odemeler">💵 Ödemeler <span class="badge" id="odemeCount">0</span></button>
 <button class="tab-btn" id="tabBtnGelirTakip" data-tab="gelirTakip" data-permission="gelir_takip">💸 Gelir Takip <span class="badge" id="gelirTakipCount">0</span></button>
+<button class="tab-btn" id="tabBtnCari" data-tab="cari" data-permission="cari">🧾 Cari <span class="badge" id="cariCount">0</span></button>
 </div>
 
 <div class="main">
@@ -1060,6 +1061,29 @@
           <tbody></tbody>
         </table>
         <div class="empty" id="gelirTakipEmptyMsg">Henüz gelir takip kaydı yok.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-content" id="tabCari">
+    <div class="card">
+      <h2>🧾 Cari (Tedarikçi) Hesapları</h2>
+      <div class="search-bar">
+        <input type="text" id="cariSearchInput" placeholder="🔍 Cari kodu, adı veya vergi no ara...">
+        <button class="btn-primary btn-sm" id="btnCariEkle">+ Yeni Cari</button>
+        <button class="btn-outline btn-sm" id="btnCariRefresh">🔄 Yenile</button>
+      </div>
+      <div style="overflow-x:auto;">
+        <table id="cariTable">
+          <thead>
+            <tr>
+              <th>Cari Kodu</th><th>Cari Adı</th><th>Vergi No</th><th>Telefon</th>
+              <th>Borç</th><th>Alacak</th><th>Bakiye</th><th></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <div class="empty" id="cariEmptyMsg">Henüz cari kartı yok.</div>
       </div>
     </div>
   </div>
@@ -1799,6 +1823,9 @@
               <input type="checkbox" value="gelir_takip" onchange="yetkiDegisti()"> 💸 Gelir Takip
             </label>
             <label style="display:flex;align-items:center;gap:4px;font-weight:400;cursor:pointer;background:#fff;padding:4px 10px;border-radius:6px;border:1px solid #e2e8f0;">
+              <input type="checkbox" value="cari" onchange="yetkiDegisti()"> 🧾 Cari
+            </label>
+            <label style="display:flex;align-items:center;gap:4px;font-weight:400;cursor:pointer;background:#fff;padding:4px 10px;border-radius:6px;border:1px solid #e2e8f0;">
               <input type="checkbox" value="kullanicilar" onchange="yetkiDegisti()"> ⚙️ Kullanıcılar
             </label>
           </div>
@@ -1942,6 +1969,146 @@
     <div class="modal-footer">
       <button class="btn-success" id="btnGelirTakipEditSave">💾 Kaydet</button>
       <button class="btn-outline" onclick="closeGelirTakipEditModal()">İptal</button>
+    </div>
+  </div>
+</div>
+
+<!-- cari kart modalı -->
+<div class="modal-overlay" id="cariKartModal">
+  <div class="modal" style="max-width:560px;">
+    <div class="modal-header">
+      <h3 id="cariKartModalTitle">🧾 Cari Kartı</h3>
+      <button class="close-modal" onclick="closeCariKartModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <form id="cariKartForm">
+        <input type="hidden" id="cariKartId">
+        <div class="form-grid">
+          <div>
+            <label>Cari Kodu</label>
+            <input type="text" id="cariKartKodu">
+          </div>
+          <div>
+            <label>Cari Adı *</label>
+            <input type="text" id="cariKartAdi" required>
+          </div>
+          <div>
+            <label>Vergi No</label>
+            <input type="text" id="cariKartVergiNo">
+          </div>
+          <div>
+            <label>Telefon</label>
+            <input type="text" id="cariKartTelefon">
+          </div>
+          <div>
+            <label>E-posta</label>
+            <input type="text" id="cariKartEmail">
+          </div>
+          <div class="full">
+            <label>Adres</label>
+            <input type="text" id="cariKartAdres">
+          </div>
+          <div class="full">
+            <label>Notlar</label>
+            <input type="text" id="cariKartNotlar">
+          </div>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-success" id="btnCariKartKaydet">💾 Kaydet</button>
+      <button class="btn-outline" onclick="closeCariKartModal()">İptal</button>
+    </div>
+  </div>
+</div>
+
+<!-- cari ekstre modalı -->
+<div class="modal-overlay" id="cariEkstreModal">
+  <div class="modal" style="max-width:820px;">
+    <div class="modal-header">
+      <h3 id="cariEkstreTitle">📒 Cari Ekstre</h3>
+      <button class="close-modal" onclick="closeCariEkstreModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div id="cariEkstreKartBilgi" style="margin-bottom:12px;font-size:13px;color:#475569;"></div>
+      <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
+        <button class="btn-primary btn-sm" id="btnCariHareketEkle">+ Hareket Ekle</button>
+      </div>
+      <div style="overflow-x:auto;">
+        <table id="cariEkstreTable">
+          <thead>
+            <tr>
+              <th>Tarih</th><th>Tür</th><th>Açıklama</th><th>Belge No</th>
+              <th>Borç</th><th>Alacak</th><th>Bakiye</th><th></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <div class="empty" id="cariEkstreEmpty">Bu cariye ait hareket yok.</div>
+      </div>
+      <div id="cariEkstreOzet" style="margin-top:12px;padding:10px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- cari hareket modalı -->
+<div class="modal-overlay" id="cariHareketModal">
+  <div class="modal" style="max-width:560px;">
+    <div class="modal-header">
+      <h3 id="cariHareketModalTitle">🧾 Hareket</h3>
+      <button class="close-modal" onclick="closeCariHareketModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <form id="cariHareketForm">
+        <input type="hidden" id="cariHareketId">
+        <input type="hidden" id="cariHareketCariId">
+        <div class="form-grid">
+          <div>
+            <label>Tarih *</label>
+            <input type="date" id="cariHareketTarih" required>
+          </div>
+          <div>
+            <label>Tür *</label>
+            <select id="cariHareketTur">
+              <option value="borc">Borç (Alış Faturası)</option>
+              <option value="alacak">Alacak (Ödeme)</option>
+            </select>
+          </div>
+          <div>
+            <label>Tutar *</label>
+            <input type="number" id="cariHareketTutar" step="0.01" min="0" required>
+          </div>
+          <div>
+            <label>Para Birimi</label>
+            <select id="cariHareketParaBirimi">
+              <option value="TL">TL</option>
+              <option value="USD">USD ($)</option>
+              <option value="EUR">EUR (€)</option>
+            </select>
+          </div>
+          <div>
+            <label>Belge No</label>
+            <input type="text" id="cariHareketBelgeNo" placeholder="Fatura/Çek/Dekont no">
+          </div>
+          <div>
+            <label>Ödeme Şekli</label>
+            <select id="cariHareketOdemeSekli">
+              <option value="">-</option>
+              <option value="Nakit">Nakit</option>
+              <option value="Çek">Çek</option>
+              <option value="Havale/EFT">Havale/EFT</option>
+            </select>
+          </div>
+          <div class="full">
+            <label>Açıklama</label>
+            <input type="text" id="cariHareketAciklama">
+          </div>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-success" id="btnCariHareketKaydet">💾 Kaydet</button>
+      <button class="btn-outline" onclick="closeCariHareketModal()">İptal</button>
     </div>
   </div>
 </div>
@@ -2360,6 +2527,7 @@ document.getElementById('btnLogin').addEventListener('click', async () => {
     if (data.permissions.includes('siparisler')) loadSiparisList();
     if (data.permissions.includes('gerceklesen')) loadGerceklesenList();
     if (data.permissions.includes('gelir_takip')) loadGelirTakipList('');
+    if (data.permissions.includes('cari')) loadCariList('');
   } catch (e) {
     errEl.textContent = 'Bağlantı hatası. Lütfen tekrar deneyin.';
     errEl.style.display = 'block';
@@ -2394,6 +2562,7 @@ if (getToken()) {
     if (u.permissions.includes('siparisler')) loadSiparisList();
     if (u.permissions.includes('gerceklesen')) loadGerceklesenList();
     if (u.permissions.includes('gelir_takip')) loadGelirTakipList('');
+    if (u.permissions.includes('cari')) loadCariList('');
   }
 } else {
   document.getElementById('loginOverlay').style.display = 'flex';
@@ -5868,6 +6037,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', function() {
     if (this.dataset.tab === 'odemeler') loadOdemeler();
     if (this.dataset.tab === 'gelirTakip') loadGelirTakipList(gelirTakipSearchInput?.value || '');
+    if (this.dataset.tab === 'cari') loadCariList(cariSearchInput?.value || '');
   });
 });
 
@@ -6584,6 +6754,251 @@ document.getElementById('btnGelirYeniKaydet').addEventListener('click', async ()
   loadGelirTakipList(gelirTakipSearchInput?.value || '');
 });
 
+// ==============================
+// CARİ (TEDARİKÇİ HESAPLARI)
+// ==============================
+const cariTbody = document.querySelector('#cariTable tbody');
+const cariEmptyMsg = document.getElementById('cariEmptyMsg');
+const cariSearchInput = document.getElementById('cariSearchInput');
+let _cariEkstreCariId = null;
+let _cariEkstreHareketler = [];
+
+cariSearchInput.addEventListener('input', () => loadCariList(cariSearchInput.value));
+document.getElementById('btnCariRefresh').addEventListener('click', () => { cariSearchInput.value = ''; loadCariList(''); });
+document.getElementById('btnCariEkle').addEventListener('click', () => openCariKartModal());
+document.getElementById('btnCariKartKaydet').addEventListener('click', cariKartKaydet);
+document.getElementById('btnCariHareketKaydet').addEventListener('click', cariHareketKaydet);
+document.getElementById('btnCariHareketEkle').addEventListener('click', () => openCariHareketModal(_cariEkstreCariId));
+document.getElementById('cariKartModal').addEventListener('click', function(e) { if (e.target === this) closeCariKartModal(); });
+document.getElementById('cariEkstreModal').addEventListener('click', function(e) { if (e.target === this) closeCariEkstreModal(); });
+document.getElementById('cariHareketModal').addEventListener('click', function(e) { if (e.target === this) closeCariHareketModal(); });
+
+async function loadCariList(arama) {
+  try {
+    const res = await apiFetch('/api/cari');
+    if (!res.ok) { cariEmptyMsg.textContent = t('cari.errorLoad'); cariEmptyMsg.style.display = 'block'; return; }
+    let rows = await res.json();
+    if (arama) {
+      const q = arama.toLocaleLowerCase('tr');
+      rows = rows.filter(r => (r.cari_adi || '').toLocaleLowerCase('tr').includes(q) || (r.cari_kodu || '').toLocaleLowerCase('tr').includes(q) || (r.vergi_no || '').toLocaleLowerCase('tr').includes(q) || (r.telefon || '').includes(q));
+    }
+    cariTbody.innerHTML = '';
+    document.getElementById('cariCount').textContent = rows.length;
+    if (rows.length === 0) { cariEmptyMsg.style.display = 'block'; cariEmptyMsg.textContent = arama ? 'Sonuç bulunamadı.' : t('cari.emptyMsg'); }
+    else cariEmptyMsg.style.display = 'none';
+    rows.forEach(r => {
+      const bakiye = (r.borc || 0) - (r.alacak || 0);
+      const tr = document.createElement('tr');
+      tr.style.cursor = 'pointer';
+      tr.innerHTML = `
+        <td>${esc(r.cari_kodu || '-')}</td>
+        <td style="font-weight:600;">${esc(r.cari_adi)}</td>
+        <td>${esc(r.vergi_no || '-')}</td>
+        <td>${esc(r.telefon || '-')}</td>
+        <td class="price">₺ ${formatPara(r.borc || 0)}</td>
+        <td class="price">₺ ${formatPara(r.alacak || 0)}</td>
+        <td class="price" style="font-weight:700;color:${bakiye > 0 ? '#dc2626' : (bakiye < 0 ? '#059669' : '#64748b')};">₺ ${formatPara(bakiye)}</td>
+        <td style="white-space:nowrap;">
+          <button class="btn-outline btn-sm" onclick="event.stopPropagation();openCariEkstre(${r.id})" title="Ekstre">📒</button>
+          <button class="btn-outline btn-sm" onclick="event.stopPropagation();openCariKartModal(${r.id})" title="Düzenle">✏️</button>
+          <button class="btn-danger btn-sm" onclick="event.stopPropagation();cariKartSil(${r.id})" title="Sil">🗑</button>
+        </td>
+      `;
+      tr.addEventListener('click', () => openCariEkstre(r.id));
+      cariTbody.appendChild(tr);
+    });
+    setTimeout(translateDOM, 100);
+  } catch (e) {
+    cariEmptyMsg.textContent = t('cari.errorLoad');
+    cariEmptyMsg.style.display = 'block';
+  }
+}
+
+// --- Cari Kart ---
+function openCariKartModal(id) {
+  document.getElementById('cariKartForm').reset();
+  document.getElementById('cariKartId').value = '';
+  document.getElementById('cariKartModalTitle').textContent = '🧾 Yeni Cari';
+  if (id) {
+    document.getElementById('cariKartModalTitle').textContent = '🧾 Cari Kartı Düzenle';
+    apiFetch('/api/cari/' + id).then(r => r.json()).then(row => {
+      document.getElementById('cariKartId').value = row.id;
+      document.getElementById('cariKartKodu').value = row.cari_kodu || '';
+      document.getElementById('cariKartAdi').value = row.cari_adi || '';
+      document.getElementById('cariKartVergiNo').value = row.vergi_no || '';
+      document.getElementById('cariKartTelefon').value = row.telefon || '';
+      document.getElementById('cariKartEmail').value = row.email || '';
+      document.getElementById('cariKartAdres').value = row.adres || '';
+      document.getElementById('cariKartNotlar').value = row.notlar || '';
+    }).catch(() => {});
+  }
+  document.getElementById('cariKartModal').classList.add('show');
+}
+
+function closeCariKartModal() {
+  document.getElementById('cariKartModal').classList.remove('show');
+}
+
+async function cariKartKaydet() {
+  const id = document.getElementById('cariKartId').value;
+  const cari_adi = document.getElementById('cariKartAdi').value.trim();
+  if (!cari_adi) return alert('Cari adı zorunludur.');
+  const body = {
+    cari_kodu: document.getElementById('cariKartKodu').value.trim(),
+    cari_adi: cari_adi,
+    vergi_no: document.getElementById('cariKartVergiNo').value.trim(),
+    telefon: document.getElementById('cariKartTelefon').value.trim(),
+    email: document.getElementById('cariKartEmail').value.trim(),
+    adres: document.getElementById('cariKartAdres').value.trim(),
+    notlar: document.getElementById('cariKartNotlar').value.trim()
+  };
+  const res = await apiFetch(id ? '/api/cari/' + id : '/api/cari', {
+    method: id ? 'PUT' : 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) { const err = await res.json().catch(() => ({ hata: 'Sunucu hatası' })); return alert('Hata: ' + err.hata); }
+  showToast('✅ ' + t('cari.toastSaved'));
+  closeCariKartModal();
+  loadCariList(cariSearchInput.value);
+}
+
+async function cariKartSil(id) {
+  if (!confirm(t('cari.confirmDelete'))) return;
+  const res = await apiFetch('/api/cari/' + id, { method: 'DELETE' });
+  if (!res.ok) { const err = await res.json().catch(() => ({ hata: 'Sunucu hatası' })); return alert('Hata: ' + err.hata); }
+  showToast('🗑 ' + t('cari.toastDeleted'));
+  loadCariList(cariSearchInput.value);
+}
+
+// --- Cari Ekstre ---
+async function openCariEkstre(id) {
+  _cariEkstreCariId = id;
+  document.getElementById('cariEkstreModal').classList.add('show');
+  await loadCariEkstre(id);
+}
+
+function closeCariEkstreModal() {
+  document.getElementById('cariEkstreModal').classList.remove('show');
+}
+
+async function loadCariEkstre(id) {
+  const empty = document.getElementById('cariEkstreEmpty');
+  const tbody = document.querySelector('#cariEkstreTable tbody');
+  try {
+    const kart = await apiFetch('/api/cari/' + id).then(r => r.json());
+    document.getElementById('cariEkstreTitle').textContent = '📒 ' + (kart.cari_adi || 'Cari Ekstre');
+    document.getElementById('cariEkstreKartBilgi').innerHTML =
+      (kart.cari_kodu ? '<strong>Kod:</strong> ' + esc(kart.cari_kodu) + ' &nbsp;|&nbsp; ' : '') +
+      (kart.vergi_no ? '<strong>Vergi No:</strong> ' + esc(kart.vergi_no) + ' &nbsp;|&nbsp; ' : '') +
+      (kart.telefon ? '<strong>Tel:</strong> ' + esc(kart.telefon) : '');
+
+    const res = await apiFetch('/api/cari/' + id + '/hareketler');
+    const hareketler = res.ok ? await res.json() : [];
+    _cariEkstreHareketler = hareketler;
+    tbody.innerHTML = '';
+    if (hareketler.length === 0) { empty.style.display = 'block'; empty.textContent = t('cari.noHareket'); }
+    else empty.style.display = 'none';
+
+    let bakiye = 0, toplamBorc = 0, toplamAlacak = 0;
+    hareketler.forEach(h => {
+      const isBorc = h.tur === 'borc';
+      if (isBorc) { toplamBorc += h.tutar; bakiye += h.tutar; } else { toplamAlacak += h.tutar; bakiye -= h.tutar; }
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${formatTarih(h.tarih)}</td>
+        <td>${isBorc ? '<span style="color:#dc2626;">Borç</span>' : '<span style="color:#059669;">Alacak</span>'}</td>
+        <td>${esc(h.aciklama || '-')}${h.odeme_sekli ? ' <span style="color:#94a3b8;font-size:11px;">(' + esc(h.odeme_sekli) + ')</span>' : ''}</td>
+        <td>${esc(h.belge_no || '-')}</td>
+        <td class="price">${isBorc ? '₺ ' + formatPara(h.tutar) : ''}</td>
+        <td class="price">${!isBorc ? '₺ ' + formatPara(h.tutar) : ''}</td>
+        <td class="price" style="font-weight:700;color:${bakiye > 0 ? '#dc2626' : (bakiye < 0 ? '#059669' : '#64748b')};">₺ ${formatPara(bakiye)}</td>
+        <td style="white-space:nowrap;">
+          <button class="btn-outline btn-sm" onclick="openCariHareketModal(${id}, ${h.id})" title="Düzenle">✏️</button>
+          <button class="btn-danger btn-sm" onclick="cariHareketSil(${h.id})" title="Sil">🗑</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    document.getElementById('cariEkstreOzet').innerHTML =
+      '<strong>Toplam Borç:</strong> ₺ ' + formatPara(toplamBorc) +
+      ' &nbsp;|&nbsp; <strong>Toplam Alacak:</strong> ₺ ' + formatPara(toplamAlacak) +
+      ' &nbsp;|&nbsp; <strong>Bakiye:</strong> ₺ ' + formatPara(toplamBorc - toplamAlacak);
+    setTimeout(translateDOM, 100);
+  } catch (e) {
+    empty.textContent = t('cari.errorLoad');
+    empty.style.display = 'block';
+  }
+}
+
+// --- Cari Hareket ---
+function openCariHareketModal(cariId, hareketId) {
+  document.getElementById('cariHareketForm').reset();
+  document.getElementById('cariHareketId').value = '';
+  document.getElementById('cariHareketCariId').value = cariId || '';
+  document.getElementById('cariHareketTarih').value = new Date().toISOString().split('T')[0];
+  document.getElementById('cariHareketTur').value = 'borc';
+  document.getElementById('cariHareketModalTitle').textContent = '🧾 Yeni Hareket';
+  if (hareketId) {
+    document.getElementById('cariHareketModalTitle').textContent = '🧾 Hareket Düzenle';
+    const h = _cariEkstreHareketler.find(x => x.id === hareketId);
+    if (h) {
+      document.getElementById('cariHareketId').value = h.id;
+      document.getElementById('cariHareketTarih').value = h.tarih || '';
+      document.getElementById('cariHareketTur').value = h.tur || 'borc';
+      document.getElementById('cariHareketTutar').value = h.tutar || '';
+      document.getElementById('cariHareketParaBirimi').value = h.para_birimi || 'TL';
+      document.getElementById('cariHareketBelgeNo').value = h.belge_no || '';
+      document.getElementById('cariHareketOdemeSekli').value = h.odeme_sekli || '';
+      document.getElementById('cariHareketAciklama').value = h.aciklama || '';
+    }
+  }
+  document.getElementById('cariHareketModal').classList.add('show');
+}
+
+function closeCariHareketModal() {
+  document.getElementById('cariHareketModal').classList.remove('show');
+}
+
+async function cariHareketKaydet() {
+  const id = document.getElementById('cariHareketId').value;
+  const cariId = document.getElementById('cariHareketCariId').value;
+  const tarih = document.getElementById('cariHareketTarih').value;
+  const tur = document.getElementById('cariHareketTur').value;
+  const tutar = parseFloat(document.getElementById('cariHareketTutar').value) || 0;
+  if (!tarih || !tur || tutar <= 0) return alert('Tarih, tür ve geçerli bir tutar giriniz.');
+  const body = {
+    tarih: tarih,
+    tur: tur,
+    tutar: tutar,
+    para_birimi: document.getElementById('cariHareketParaBirimi').value,
+    belge_no: document.getElementById('cariHareketBelgeNo').value.trim(),
+    odeme_sekli: document.getElementById('cariHareketOdemeSekli').value,
+    aciklama: document.getElementById('cariHareketAciklama').value.trim()
+  };
+  const url = id ? '/api/cari/hareketler/' + id : '/api/cari/' + cariId + '/hareketler';
+  const res = await apiFetch(url, {
+    method: id ? 'PUT' : 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) { const err = await res.json().catch(() => ({ hata: 'Sunucu hatası' })); return alert('Hata: ' + err.hata); }
+  showToast('✅ ' + t('cari.toastHareketSaved'));
+  closeCariHareketModal();
+  loadCariList(cariSearchInput.value);
+  if (_cariEkstreCariId) loadCariEkstre(_cariEkstreCariId);
+}
+
+async function cariHareketSil(id) {
+  if (!confirm(t('cari.confirmDeleteHareket'))) return;
+  const res = await apiFetch('/api/cari/hareketler/' + id, { method: 'DELETE' });
+  if (!res.ok) { const err = await res.json().catch(() => ({ hata: 'Sunucu hatası' })); return alert('Hata: ' + err.hata); }
+  showToast('🗑 ' + t('cari.toastHareketDeleted'));
+  loadCariList(cariSearchInput.value);
+  if (_cariEkstreCariId) loadCariEkstre(_cariEkstreCariId);
+}
+
 // KULLANICI YÖNETİMİ MODAL
 // ==============================
 async function openKullaniciModal() {
@@ -6603,8 +7018,8 @@ document.getElementById('kullaniciModal').addEventListener('click', function(e) 
 
 // rol şablonları (frontend)
 const ROL_SABLONLARI = {
-  admin: ['fiyatlar','siparisler','gerceklesen','odemeler','bant','kullanicilar','gelir_takip'],
-  muhasebe: ['fiyatlar','gerceklesen','odemeler','gelir_takip'],
+  admin: ['fiyatlar','siparisler','gerceklesen','odemeler','bant','kullanicilar','gelir_takip','cari'],
+  muhasebe: ['fiyatlar','gerceklesen','odemeler','gelir_takip','cari'],
   operasyon: ['siparisler','gerceklesen','bant'],
   satis: ['fiyatlar','siparisler']
 };

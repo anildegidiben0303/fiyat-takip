@@ -25,8 +25,8 @@ function getLang(req) {
 // --- çok kullanıcılı auth sistemi ---
 
 const ROLE_PERMISSIONS = {
-  admin: ['fiyatlar','siparisler','gerceklesen','odemeler','bant','kullanicilar','gelir_takip'],
-  muhasebe: ['fiyatlar','gerceklesen','odemeler','gelir_takip'],
+  admin: ['fiyatlar','siparisler','gerceklesen','odemeler','bant','kullanicilar','gelir_takip','cari'],
+  muhasebe: ['fiyatlar','gerceklesen','odemeler','gelir_takip','cari'],
   operasyon: ['siparisler','gerceklesen','bant'],
   satis: ['fiyatlar','siparisler']
 };
@@ -330,6 +330,53 @@ try {
   });
 } catch (e) { /* ignore */ }
 
+// --- cari kartlar tablosu (tedarikçi hesapları) ---
+db.exec(`
+  CREATE TABLE IF NOT EXISTS cari_kartlar (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cari_kodu TEXT DEFAULT '',
+    cari_adi TEXT NOT NULL,
+    vergi_no TEXT DEFAULT '',
+    telefon TEXT DEFAULT '',
+    email TEXT DEFAULT '',
+    adres TEXT DEFAULT '',
+    notlar TEXT DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+  )
+`);
+
+// --- cari hareketler tablosu (borç/alacak) ---
+db.exec(`
+  CREATE TABLE IF NOT EXISTS cari_hareketler (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cari_id INTEGER NOT NULL,
+    tarih TEXT NOT NULL,
+    tur TEXT NOT NULL DEFAULT 'borc',
+    tutar REAL NOT NULL DEFAULT 0,
+    para_birimi TEXT DEFAULT 'TL',
+    aciklama TEXT DEFAULT '',
+    belge_no TEXT DEFAULT '',
+    odeme_sekli TEXT DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+  )
+`);
+try { db.exec('ALTER TABLE cari_hareketler ADD COLUMN para_birimi TEXT DEFAULT \'TL\''); } catch (e) { /* zaten var */ }
+try { db.exec('ALTER TABLE cari_hareketler ADD COLUMN belge_no TEXT DEFAULT \'\''); } catch (e) { /* zaten var */ }
+try { db.exec('ALTER TABLE cari_hareketler ADD COLUMN odeme_sekli TEXT DEFAULT \'\''); } catch (e) { /* zaten var */ }
+
+// mevcut admin/muhasebe kullanıcılarına cari yetkisi ekle
+try {
+  const cariUsers = db.prepare("SELECT id, permissions FROM kullanicilar WHERE (rol = 'admin' OR rol = 'muhasebe') AND (permissions IS NULL OR permissions NOT LIKE '%cari%')").all();
+  cariUsers.forEach(user => {
+    let perms = [];
+    try { perms = JSON.parse(user.permissions || '[]'); } catch(e) { perms = []; }
+    if (!perms.includes('cari')) {
+      perms.push('cari');
+      db.prepare('UPDATE kullanicilar SET permissions = ? WHERE id = ?').run(JSON.stringify(perms), user.id);
+    }
+  });
+} catch (e) { /* ignore */ }
+
 // --- ayarlar tablosu (global birim fiyatlar vs) ---
 db.exec(`
   CREATE TABLE IF NOT EXISTS ayarlar (
@@ -566,6 +613,7 @@ app.use('/api/gerceklesen', requirePermission('gerceklesen'));
 app.use('/api/odemeler', requirePermission('odemeler'));
 app.use('/api/kullanicilar', requirePermission('kullanicilar'));
 app.use('/api/gelir-takip', requirePermission('gelir_takip'));
+app.use('/api/cari', requirePermission('cari'));
 
 // --- API ---
 
@@ -2799,6 +2847,99 @@ app.delete('/api/gelir-takip/:id', (req, res) => {
   if (!eski) return res.status(404).json({ hata: t(getLang(req), 'gelirTakipNotFound') });
   db.prepare('DELETE FROM gelir_takip WHERE id = ?').run(req.params.id);
   res.json({ mesaj: t(getLang(req), 'gelirTakipDeleted') });
+});
+
+// --- CARİ (TEDARİKÇİ HESAPLARI) API ---
+
+// tüm cari kartları listele (borç/alacak/bakiye toplamlarıyla)
+app.get('/api/cari', (req, res) => {
+  const rows = db.prepare(`
+    SELECT c.*,
+      COALESCE((SELECT SUM(tutar) FROM cari_hareketler h WHERE h.cari_id = c.id AND h.tur = 'borc'), 0) AS borc,
+      COALESCE((SELECT SUM(tutar) FROM cari_hareketler h WHERE h.cari_id = c.id AND h.tur = 'alacak'), 0) AS alacak
+    FROM cari_kartlar c
+    ORDER BY c.cari_adi ASC
+  `).all();
+  rows.forEach(r => { r.bakiye = (r.borc || 0) - (r.alacak || 0); });
+  res.json(rows);
+});
+
+// tek cari kartı getir
+app.get('/api/cari/:id', (req, res) => {
+  const row = db.prepare('SELECT * FROM cari_kartlar WHERE id = ?').get(req.params.id);
+  if (!row) return res.status(404).json({ hata: t(getLang(req), 'cariNotFound') });
+  res.json(row);
+});
+
+// yeni cari kartı ekle
+app.post('/api/cari', (req, res) => {
+  const { cari_kodu, cari_adi, vergi_no, telefon, email, adres, notlar } = req.body;
+  if (!cari_adi) return res.status(400).json({ hata: t(getLang(req), 'cariAdiRequired') });
+  const info = db.prepare(`
+    INSERT INTO cari_kartlar (cari_kodu, cari_adi, vergi_no, telefon, email, adres, notlar)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(cari_kodu || '', cari_adi, vergi_no || '', telefon || '', email || '', adres || '', notlar || '');
+  res.status(201).json({ id: info.lastInsertRowid, mesaj: t(getLang(req), 'cariCreated') });
+});
+
+// cari kartı güncelle
+app.put('/api/cari/:id', (req, res) => {
+  const { cari_kodu, cari_adi, vergi_no, telefon, email, adres, notlar } = req.body;
+  const eski = db.prepare('SELECT * FROM cari_kartlar WHERE id = ?').get(req.params.id);
+  if (!eski) return res.status(404).json({ hata: t(getLang(req), 'cariNotFound') });
+  db.prepare(`
+    UPDATE cari_kartlar SET cari_kodu=?, cari_adi=?, vergi_no=?, telefon=?, email=?, adres=?, notlar=?
+    WHERE id=?
+  `).run(cari_kodu || '', cari_adi || eski.cari_adi, vergi_no || '', telefon || '', email || '', adres || '', notlar || '', req.params.id);
+  res.json({ mesaj: t(getLang(req), 'cariUpdated') });
+});
+
+// cari kartı ve bağlı hareketlerini sil
+app.delete('/api/cari/:id', (req, res) => {
+  const eski = db.prepare('SELECT * FROM cari_kartlar WHERE id = ?').get(req.params.id);
+  if (!eski) return res.status(404).json({ hata: t(getLang(req), 'cariNotFound') });
+  db.prepare('DELETE FROM cari_hareketler WHERE cari_id = ?').run(req.params.id);
+  db.prepare('DELETE FROM cari_kartlar WHERE id = ?').run(req.params.id);
+  res.json({ mesaj: t(getLang(req), 'cariDeleted') });
+});
+
+// cari kartına ait hareketleri listele (ekstre)
+app.get('/api/cari/:id/hareketler', (req, res) => {
+  const rows = db.prepare('SELECT * FROM cari_hareketler WHERE cari_id = ? ORDER BY tarih ASC, id ASC').all(req.params.id);
+  res.json(rows);
+});
+
+// yeni hareket ekle
+app.post('/api/cari/:id/hareketler', (req, res) => {
+  const { tarih, tur, tutar, para_birimi, aciklama, belge_no, odeme_sekli } = req.body;
+  const kart = db.prepare('SELECT id FROM cari_kartlar WHERE id = ?').get(req.params.id);
+  if (!kart) return res.status(404).json({ hata: t(getLang(req), 'cariNotFound') });
+  if (!tarih || !tur || tutar == null) return res.status(400).json({ hata: t(getLang(req), 'cariHareketRequired') });
+  const info = db.prepare(`
+    INSERT INTO cari_hareketler (cari_id, tarih, tur, tutar, para_birimi, aciklama, belge_no, odeme_sekli)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(req.params.id, tarih, tur, tutar || 0, para_birimi || 'TL', aciklama || '', belge_no || '', odeme_sekli || '');
+  res.status(201).json({ id: info.lastInsertRowid, mesaj: t(getLang(req), 'cariHareketCreated') });
+});
+
+// hareket güncelle
+app.put('/api/cari/hareketler/:id', (req, res) => {
+  const { tarih, tur, tutar, para_birimi, aciklama, belge_no, odeme_sekli } = req.body;
+  const eski = db.prepare('SELECT * FROM cari_hareketler WHERE id = ?').get(req.params.id);
+  if (!eski) return res.status(404).json({ hata: t(getLang(req), 'cariHareketNotFound') });
+  db.prepare(`
+    UPDATE cari_hareketler SET tarih=?, tur=?, tutar=?, para_birimi=?, aciklama=?, belge_no=?, odeme_sekli=?
+    WHERE id=?
+  `).run(tarih || eski.tarih, tur || eski.tur, tutar || 0, para_birimi || 'TL', aciklama || '', belge_no || '', odeme_sekli || '', req.params.id);
+  res.json({ mesaj: t(getLang(req), 'cariHareketUpdated') });
+});
+
+// hareket sil
+app.delete('/api/cari/hareketler/:id', (req, res) => {
+  const eski = db.prepare('SELECT * FROM cari_hareketler WHERE id = ?').get(req.params.id);
+  if (!eski) return res.status(404).json({ hata: t(getLang(req), 'cariHareketNotFound') });
+  db.prepare('DELETE FROM cari_hareketler WHERE id = ?').run(req.params.id);
+  res.json({ mesaj: t(getLang(req), 'cariHareketDeleted') });
 });
 
 // --- yedekleme ---

@@ -48,7 +48,8 @@ const TRANSLATIONS = {
       siparisler: 'Siparişler',
       gerceklesen: 'Gerçekleşen',
       odemeler: 'Ödemeler',
-      gelirTakip: 'Gelir Takip'
+      gelirTakip: 'Gelir Takip',
+      cari: 'Cari'
     },
 
     // --- Fiyatlar ---
@@ -317,6 +318,48 @@ const TRANSLATIONS = {
       noCek: 'Çek bulunmuyor'
     },
 
+    // --- Cari (Tedarikçi Hesapları) ---
+    cari: {
+      title: 'Cari (Tedarikçi) Hesapları',
+      emptyMsg: 'Henüz cari kartı yok.',
+      newCari: '+ Yeni Cari',
+      editCari: 'Cari Kartı Düzenle',
+      confirmDelete: 'Bu cari kartını ve tüm hareketlerini silmek istediğinize emin misiniz?',
+      colKod: 'Cari Kodu',
+      colAd: 'Cari Adı',
+      colVergiNo: 'Vergi No',
+      colTelefon: 'Telefon',
+      colBorc: 'Borç',
+      colAlacak: 'Alacak',
+      colBakiye: 'Bakiye',
+      ekstre: 'Cari Ekstre',
+      hareketler: 'Hareketler',
+      yeniHareket: '+ Hareket Ekle',
+      hareketDuzenle: 'Hareket Düzenle',
+      turBorc: 'Borç (Alış Faturası)',
+      turAlacak: 'Alacak (Ödeme)',
+      fieldTarih: 'Tarih',
+      fieldTur: 'Tür',
+      fieldTutar: 'Tutar',
+      fieldParaBirimi: 'Para Birimi',
+      fieldAciklama: 'Açıklama',
+      fieldBelgeNo: 'Belge No',
+      fieldOdemeSekli: 'Ödeme Şekli',
+      odemeNakit: 'Nakit',
+      odemeCek: 'Çek',
+      odemeHavale: 'Havale/EFT',
+      toplamBorc: 'Toplam Borç',
+      toplamAlacak: 'Toplam Alacak',
+      kapanisBakiyesi: 'Kapanış Bakiyesi',
+      noHareket: 'Bu cariye ait hareket yok.',
+      confirmDeleteHareket: 'Bu hareketi silmek istediğinize emin misiniz?',
+      toastSaved: 'Cari kartı kaydedildi!',
+      toastDeleted: 'Cari kartı silindi',
+      toastHareketSaved: 'Hareket kaydedildi!',
+      toastHareketDeleted: 'Hareket silindi',
+      errorLoad: 'Cari listesi yüklenemedi'
+    },
+
     // --- Aylar ---
     months: ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran',
              'Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'],
@@ -376,7 +419,8 @@ const TRANSLATIONS = {
       siparisler: 'Orders',
       gerceklesen: 'Actual Costs',
       odemeler: 'Payments',
-      gelirTakip: 'Revenue'
+      gelirTakip: 'Revenue',
+      cari: 'Accounts'
     },
 
     fiyatlar: {
@@ -635,6 +679,47 @@ const TRANSLATIONS = {
       cekKirdirmaTarihi: 'Discount Date', cekNotlar: 'Notes',
       cekBaslik: 'Check Details',
       noCek: 'No checks'
+    },
+
+    cari: {
+      title: 'Supplier Accounts',
+      emptyMsg: 'No cari cards yet.',
+      newCari: '+ New Cari',
+      editCari: 'Edit Cari Card',
+      confirmDelete: 'Are you sure you want to delete this cari card and all its transactions?',
+      colKod: 'Code',
+      colAd: 'Name',
+      colVergiNo: 'Tax No',
+      colTelefon: 'Phone',
+      colBorc: 'Debit',
+      colAlacak: 'Credit',
+      colBakiye: 'Balance',
+      ekstre: 'Account Statement',
+      hareketler: 'Transactions',
+      yeniHareket: '+ Add Transaction',
+      hareketDuzenle: 'Edit Transaction',
+      turBorc: 'Debit (Purchase)',
+      turAlacak: 'Credit (Payment)',
+      fieldTarih: 'Date',
+      fieldTur: 'Type',
+      fieldTutar: 'Amount',
+      fieldParaBirimi: 'Currency',
+      fieldAciklama: 'Description',
+      fieldBelgeNo: 'Document No',
+      fieldOdemeSekli: 'Payment Method',
+      odemeNakit: 'Cash',
+      odemeCek: 'Check',
+      odemeHavale: 'Wire/EFT',
+      toplamBorc: 'Total Debit',
+      toplamAlacak: 'Total Credit',
+      kapanisBakiyesi: 'Closing Balance',
+      noHareket: 'No transactions for this cari.',
+      confirmDeleteHareket: 'Are you sure you want to delete this transaction?',
+      toastSaved: 'Cari card saved!',
+      toastDeleted: 'Cari card deleted',
+      toastHareketSaved: 'Transaction saved!',
+      toastHareketDeleted: 'Transaction deleted',
+      errorLoad: 'Could not load cari list'
     },
 
     months: ['January','February','March','April','May','June',

@@ -98,6 +98,18 @@ const TR = {
   gelirTakipNotFound: 'Gelir takip kaydı bulunamadı',
   gelirTakipExists: 'Bu sipariş için zaten gelir takip kaydı mevcut',
 
+  // Cari (Tedarikçi Hesapları)
+  cariCreated: 'Cari kartı oluşturuldu',
+  cariUpdated: 'Cari kartı güncellendi',
+  cariDeleted: 'Cari kartı silindi',
+  cariNotFound: 'Cari kartı bulunamadı',
+  cariAdiRequired: 'Cari adı zorunludur',
+  cariHareketCreated: 'Hareket eklendi',
+  cariHareketUpdated: 'Hareket güncellendi',
+  cariHareketDeleted: 'Hareket silindi',
+  cariHareketNotFound: 'Hareket bulunamadı',
+  cariHareketRequired: 'Tarih, tür ve tutar zorunludur',
+
   // Ek
   siparisAktarildi: 'Siparişe aktarıldı',
   bulunamadi: 'Bulunamadı',
@@ -188,6 +200,18 @@ const EN = {
   gelirTakipDeleted: 'Deleted',
   gelirTakipNotFound: 'Revenue tracking record not found',
   gelirTakipExists: 'Revenue tracking record already exists for this order',
+
+  // Cari (Supplier Accounts)
+  cariCreated: 'Cari card created',
+  cariUpdated: 'Cari card updated',
+  cariDeleted: 'Cari card deleted',
+  cariNotFound: 'Cari card not found',
+  cariAdiRequired: 'Cari name is required',
+  cariHareketCreated: 'Transaction added',
+  cariHareketUpdated: 'Transaction updated',
+  cariHareketDeleted: 'Transaction deleted',
+  cariHareketNotFound: 'Transaction not found',
+  cariHareketRequired: 'Date, type and amount are required',
 
   // Extra
   siparisAktarildi: 'Transferred to orders',
