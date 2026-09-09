@@ -2050,7 +2050,6 @@
         </table>
         <div class="empty" id="cariEkstreEmpty">Bu cariye ait hareket yok.</div>
       </div>
-      <div id="cariEkstreOzet" style="margin-top:12px;padding:10px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;"></div>
     </div>
   </div>
 </div>
@@ -6913,14 +6912,14 @@ async function loadCariEkstre(id) {
       tahsilat: { label: 'Ödeme Aldık', color: '#0891b2' }
     };
 
-    let bakiye = 0, toplamBorc = 0, toplamAlacak = 0;
+    let bakiye = 0;
     hareketler.forEach(h => {
       const t = turInfo[h.tur] ? h.tur : 'borc';
       const info = turInfo[t];
-      if (t === 'borc') { toplamBorc += h.tutar; bakiye += h.tutar; }
-      else if (t === 'alacak') { toplamAlacak += h.tutar; bakiye -= h.tutar; }
-      else if (t === 'odeme') { toplamBorc -= h.tutar; bakiye -= h.tutar; }
-      else if (t === 'tahsilat') { toplamAlacak -= h.tutar; bakiye += h.tutar; }
+      if (t === 'borc') { bakiye += h.tutar; }
+      else if (t === 'alacak') { bakiye -= h.tutar; }
+      else if (t === 'odeme') { bakiye -= h.tutar; }
+      else if (t === 'tahsilat') { bakiye += h.tutar; }
 
       const tr = document.createElement('tr');
       tr.innerHTML = `
@@ -6938,10 +6937,6 @@ async function loadCariEkstre(id) {
       tbody.appendChild(tr);
     });
 
-    document.getElementById('cariEkstreOzet').innerHTML =
-      '<strong>Toplam Borç:</strong> ₺ ' + formatPara(toplamBorc) +
-      ' &nbsp;|&nbsp; <strong>Toplam Alacak:</strong> ₺ ' + formatPara(toplamAlacak) +
-      ' &nbsp;|&nbsp; <strong>Bakiye:</strong> ₺ ' + formatPara(toplamBorc - toplamAlacak);
     setTimeout(translateDOM, 100);
   } catch (e) {
     empty.textContent = t('cari.errorLoad');
