@@ -2072,11 +2072,11 @@
           </div>
           <div>
             <label>Tür *</label>
-            <select id="cariHareketTur">
-              <option value="borc">Bize Kesilen Fatura (Borç)</option>
-              <option value="alacak">Bizim Kestiğimiz Fatura (Alacak)</option>
-              <option value="odeme">Ödeme Yaptık</option>
-              <option value="tahsilat">Ödeme Aldık</option>
+            <select id="cariHareketTur" onchange="cariHareketTurDegisti()">
+              <option value="borc">Borç</option>
+              <option value="alacak">Alacak</option>
+              <option value="odeme">Yapılan Ödeme</option>
+              <option value="tahsilat">Alınan Ödeme</option>
             </select>
           </div>
           <div>
@@ -2092,10 +2092,10 @@
             </select>
           </div>
           <div>
-            <label>Belge No</label>
-            <input type="text" id="cariHareketBelgeNo" placeholder="Fatura/Çek/Dekont no">
+            <label id="cariHareketBelgeNoLabel">Fatura No</label>
+            <input type="text" id="cariHareketBelgeNo" placeholder="Fatura numarası">
           </div>
-          <div>
+          <div id="cariHareketOdemeSekliKapsayici">
             <label>Ödeme Şekli</label>
             <select id="cariHareketOdemeSekli">
               <option value="">-</option>
@@ -6906,10 +6906,10 @@ async function loadCariEkstre(id) {
     else empty.style.display = 'none';
 
     const turInfo = {
-      borc: { label: 'Bize Kesilen Fatura', color: '#dc2626' },
-      alacak: { label: 'Bizim Kestiğimiz Fatura', color: '#059669' },
-      odeme: { label: 'Ödeme Yaptık', color: '#2563eb' },
-      tahsilat: { label: 'Ödeme Aldık', color: '#0891b2' }
+      borc: { label: 'Borç', color: '#dc2626' },
+      alacak: { label: 'Alacak', color: '#059669' },
+      odeme: { label: 'Yapılan Ödeme', color: '#2563eb' },
+      tahsilat: { label: 'Alınan Ödeme', color: '#0891b2' }
     };
 
     let bakiye = 0;
@@ -6945,6 +6945,22 @@ async function loadCariEkstre(id) {
 }
 
 // --- Cari Hareket ---
+function cariHareketTurDegisti() {
+  const tur = document.getElementById('cariHareketTur').value;
+  const kapsayici = document.getElementById('cariHareketOdemeSekliKapsayici');
+  const belgeNoLabel = document.getElementById('cariHareketBelgeNoLabel');
+  const belgeNo = document.getElementById('cariHareketBelgeNo');
+  const faturaTipi = (tur === 'borc' || tur === 'alacak');
+  if (kapsayici) kapsayici.style.display = faturaTipi ? 'none' : '';
+  if (faturaTipi) {
+    if (belgeNoLabel) belgeNoLabel.textContent = 'Fatura No';
+    if (belgeNo) belgeNo.placeholder = 'Fatura numarası';
+  } else {
+    if (belgeNoLabel) belgeNoLabel.textContent = 'Belge No';
+    if (belgeNo) belgeNo.placeholder = 'Çek/Dekont no';
+  }
+}
+
 function openCariHareketModal(cariId, hareketId) {
   document.getElementById('cariHareketForm').reset();
   document.getElementById('cariHareketId').value = '';
@@ -6966,6 +6982,7 @@ function openCariHareketModal(cariId, hareketId) {
       document.getElementById('cariHareketAciklama').value = h.aciklama || '';
     }
   }
+  cariHareketTurDegisti();
   document.getElementById('cariHareketModal').classList.add('show');
 }
 
