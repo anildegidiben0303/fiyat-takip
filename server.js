@@ -2857,8 +2857,10 @@ app.delete('/api/gelir-takip/:id', (req, res) => {
 app.get('/api/cari', (req, res) => {
   const rows = db.prepare(`
     SELECT c.*,
-      COALESCE((SELECT SUM(tutar) FROM cari_hareketler h WHERE h.cari_id = c.id AND h.tur = 'borc'), 0) AS borc,
-      COALESCE((SELECT SUM(tutar) FROM cari_hareketler h WHERE h.cari_id = c.id AND h.tur = 'alacak'), 0) AS alacak
+      COALESCE((SELECT SUM(tutar) FROM cari_hareketler h WHERE h.cari_id = c.id AND h.tur = 'borc'), 0)
+      - COALESCE((SELECT SUM(tutar) FROM cari_hareketler h WHERE h.cari_id = c.id AND h.tur = 'odeme'), 0) AS borc,
+      COALESCE((SELECT SUM(tutar) FROM cari_hareketler h WHERE h.cari_id = c.id AND h.tur = 'alacak'), 0)
+      - COALESCE((SELECT SUM(tutar) FROM cari_hareketler h WHERE h.cari_id = c.id AND h.tur = 'tahsilat'), 0) AS alacak
     FROM cari_kartlar c
     ORDER BY c.cari_adi ASC
   `).all();

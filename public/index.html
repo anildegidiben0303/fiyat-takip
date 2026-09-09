@@ -2043,7 +2043,7 @@
           <thead>
             <tr>
               <th>Tarih</th><th>Tür</th><th>Açıklama</th><th>Belge No</th>
-              <th>Borç</th><th>Alacak</th><th>Bakiye</th><th></th>
+              <th>Tutar</th><th>Bakiye</th><th></th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -2074,8 +2074,10 @@
           <div>
             <label>Tür *</label>
             <select id="cariHareketTur">
-              <option value="borc">Borç (Alış Faturası)</option>
-              <option value="alacak">Alacak (Ödeme)</option>
+              <option value="borc">Bize Kesilen Fatura (Borç)</option>
+              <option value="alacak">Bizim Kestiğimiz Fatura (Alacak)</option>
+              <option value="odeme">Ödeme Yaptık</option>
+              <option value="tahsilat">Ödeme Aldık</option>
             </select>
           </div>
           <div>
@@ -6904,18 +6906,29 @@ async function loadCariEkstre(id) {
     if (hareketler.length === 0) { empty.style.display = 'block'; empty.textContent = t('cari.noHareket'); }
     else empty.style.display = 'none';
 
+    const turInfo = {
+      borc: { label: 'Bize Kesilen Fatura', color: '#dc2626' },
+      alacak: { label: 'Bizim Kestiğimiz Fatura', color: '#059669' },
+      odeme: { label: 'Ödeme Yaptık', color: '#2563eb' },
+      tahsilat: { label: 'Ödeme Aldık', color: '#0891b2' }
+    };
+
     let bakiye = 0, toplamBorc = 0, toplamAlacak = 0;
     hareketler.forEach(h => {
-      const isBorc = h.tur === 'borc';
-      if (isBorc) { toplamBorc += h.tutar; bakiye += h.tutar; } else { toplamAlacak += h.tutar; bakiye -= h.tutar; }
+      const t = turInfo[h.tur] ? h.tur : 'borc';
+      const info = turInfo[t];
+      if (t === 'borc') { toplamBorc += h.tutar; bakiye += h.tutar; }
+      else if (t === 'alacak') { toplamAlacak += h.tutar; bakiye -= h.tutar; }
+      else if (t === 'odeme') { toplamBorc -= h.tutar; bakiye -= h.tutar; }
+      else if (t === 'tahsilat') { toplamAlacak -= h.tutar; bakiye += h.tutar; }
+
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td>${formatTarih(h.tarih)}</td>
-        <td>${isBorc ? '<span style="color:#dc2626;">Borç</span>' : '<span style="color:#059669;">Alacak</span>'}</td>
+        <td><span style="color:${info.color};font-weight:600;">${info.label}</span></td>
         <td>${esc(h.aciklama || '-')}${h.odeme_sekli ? ' <span style="color:#94a3b8;font-size:11px;">(' + esc(h.odeme_sekli) + ')</span>' : ''}</td>
         <td>${esc(h.belge_no || '-')}</td>
-        <td class="price">${isBorc ? '₺ ' + formatPara(h.tutar) : ''}</td>
-        <td class="price">${!isBorc ? '₺ ' + formatPara(h.tutar) : ''}</td>
+        <td class="price" style="font-weight:600;">₺ ${formatPara(h.tutar)}</td>
         <td class="price" style="font-weight:700;color:${bakiye > 0 ? '#dc2626' : (bakiye < 0 ? '#059669' : '#64748b')};">₺ ${formatPara(bakiye)}</td>
         <td style="white-space:nowrap;">
           <button class="btn-outline btn-sm" onclick="openCariHareketModal(${id}, ${h.id})" title="Düzenle">✏️</button>
