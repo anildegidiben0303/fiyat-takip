@@ -2312,6 +2312,7 @@
             <label>Hesap Türü</label>
             <select id="cariKartHesapTuru">
               <option value="Tedarikçi">Tedarikçi</option>
+              <option value="Üretici">Üretici</option>
               <option value="Müşteri">Müşteri</option>
               <option value="Diğer">Diğer</option>
             </select>
@@ -2691,7 +2692,7 @@ el = document.getElementById('tabBtnGelirTakip'); if (el) el.childNodes[0].textC
       'Toplu Alım': 'paketleme.btnTopluAlim',
       // --- Cari (ekstre + kart + hareket) ---
       'Hesap Türü': 'cari.fieldHesapTuru',
-      'Tedarikçi': 'cari.hesapTuruTedarikci', 'Diğer': 'cari.hesapTuruDiger',
+      'Tedarikçi': 'cari.hesapTuruTedarikci', 'Üretici': 'cari.hesapTuruUretici', 'Müşteri': 'cari.hesapTuruMusteri', 'Diğer': 'cari.hesapTuruDiger',
       'Cari Adı *': 'cari.fieldCariAdi', 'Cari Adı': 'cari.colAd',
       'Vergi No': 'cari.colVergiNo', 'Telefon': 'cari.colTelefon',
       'E-posta': 'cari.fieldEmail', 'Adres': 'cari.fieldAdres',
@@ -7828,24 +7829,49 @@ async function loadCariList(arama) {
     cariTbody.innerHTML = '';
     if (rows.length === 0) { cariEmptyMsg.style.display = 'block'; cariEmptyMsg.textContent = arama ? 'Sonuç bulunamadı.' : t('cari.emptyMsg'); }
     else cariEmptyMsg.style.display = 'none';
+    // Hesap türlerini kendi içinde grupla: Tedarikçi → Üretici → Diğer → Müşteri → diğerleri
+    const turSirasi = [
+      { tur: 'Tedarikçi', label: t('cari.hesapTuruTedarikci') },
+      { tur: 'Üretici', label: t('cari.hesapTuruUretici') },
+      { tur: 'Diğer', label: t('cari.hesapTuruDiger') },
+      { tur: 'Müşteri', label: t('cari.hesapTuruMusteri') }
+    ];
+    const gruplar = {};
     rows.forEach(r => {
-      const bakiye = (r.borc || 0) - (r.alacak || 0);
-      const tr = document.createElement('tr');
-      tr.style.cursor = 'pointer';
-      tr.innerHTML = `
-        <td>${esc(r.hesap_turu || 'Tedarikçi')}</td>
-        <td style="font-weight:600;">${esc(r.cari_adi)}</td>
-        <td>${esc(r.vergi_no || '-')}</td>
-        <td>${esc(r.telefon || '-')}</td>
-        <td class="price" style="font-weight:700;color:${bakiye > 0 ? '#dc2626' : (bakiye < 0 ? '#059669' : '#64748b')};">₺ ${formatPara(bakiye)}</td>
-        <td style="white-space:nowrap;">
-          <button class="btn-outline btn-sm" onclick="event.stopPropagation();openCariEkstre(${r.id})" title="Ekstre">📒</button>
-          <button class="btn-outline btn-sm" onclick="event.stopPropagation();openCariKartModal(${r.id})" title="Düzenle">✏️</button>
-          <button class="btn-danger btn-sm" onclick="event.stopPropagation();cariKartSil(${r.id})" title="Sil">🗑</button>
-        </td>
-      `;
-      tr.addEventListener('click', () => openCariEkstre(r.id));
-      cariTbody.appendChild(tr);
+      const tur = r.hesap_turu || 'Diğer';
+      if (!gruplar[tur]) gruplar[tur] = [];
+      gruplar[tur].push(r);
+    });
+    const siraliTurler = [
+      ...turSirasi.filter(x => gruplar[x.tur]).map(x => ({ tur: x.tur, label: x.label })),
+      ...Object.keys(gruplar).filter(tur => !turSirasi.some(x => x.tur === tur)).sort().map(tur => ({ tur, label: tur }))
+    ];
+
+    siraliTurler.forEach(g => {
+      const baslik = document.createElement('tr');
+      baslik.style.background = '#eef2ff';
+      baslik.innerHTML = '<td colspan="6" style="font-weight:700;color:#1e40af;padding:6px 8px;">' + esc(g.label) + ' (' + gruplar[g.tur].length + ')</td>';
+      cariTbody.appendChild(baslik);
+
+      gruplar[g.tur].forEach(r => {
+        const bakiye = (r.borc || 0) - (r.alacak || 0);
+        const tr = document.createElement('tr');
+        tr.style.cursor = 'pointer';
+        tr.innerHTML = `
+          <td>${esc(r.hesap_turu || 'Tedarikçi')}</td>
+          <td style="font-weight:600;">${esc(r.cari_adi)}</td>
+          <td>${esc(r.vergi_no || '-')}</td>
+          <td>${esc(r.telefon || '-')}</td>
+          <td class="price" style="font-weight:700;color:${bakiye > 0 ? '#dc2626' : (bakiye < 0 ? '#059669' : '#64748b')};">₺ ${formatPara(bakiye)}</td>
+          <td style="white-space:nowrap;">
+            <button class="btn-outline btn-sm" onclick="event.stopPropagation();openCariEkstre(${r.id})" title="Ekstre">📒</button>
+            <button class="btn-outline btn-sm" onclick="event.stopPropagation();openCariKartModal(${r.id})" title="Düzenle">✏️</button>
+            <button class="btn-danger btn-sm" onclick="event.stopPropagation();cariKartSil(${r.id})" title="Sil">🗑</button>
+          </td>
+        `;
+        tr.addEventListener('click', () => openCariEkstre(r.id));
+        cariTbody.appendChild(tr);
+      });
     });
     setTimeout(translateDOM, 100);
   } catch (e) {
