@@ -49,7 +49,8 @@ const TRANSLATIONS = {
       gerceklesen: 'Gerçekleşen',
       odemeler: 'Ödemeler',
       gelirTakip: 'Gelir Takip',
-      cari: 'Cari'
+      cari: 'Cari',
+      faturalab: 'Faturalab'
     },
 
     // --- Fiyatlar ---
@@ -202,9 +203,9 @@ const TRANSLATIONS = {
       statusGecikti: 'Gecikti', statusIptalO: 'İptal',
       typeNakit: 'Nakit', typeCek: 'Çek',
       typeKrediKarti: 'Kredi Kartı',
-      typeBankaKredisi: 'Banka Kredisi', typeSpotKredi: 'Spot Kredi', typeRotatifKredi: 'Rotatif Kredi', typeVadeliOdeme: 'Vadeli Ödeme',
+      typeTaksitliKredi: 'Taksitli Kredi', typeSpotKredi: 'Spot Kredi', typeRotatifKredi: 'Rotatif Kredi', typeVadeliOdeme: 'Vadeli Ödeme',
       typeKira: 'Kira', typeMaas: 'Maaş', typeVergi: 'Vergi',
-      fieldFirma: 'Firma / Cari', fieldOdemeTuru: 'Ödeme Türü', fieldTutar: 'Tutar',
+      fieldFirma: 'Firma / Cari', fieldCari: 'Cari Hesap', fieldOdemeTuru: 'Ödeme Türü', fieldTutar: 'Tutar',
       fieldVade: 'Vade Tarihi', fieldAciklama: 'Açıklama',
       fieldCekNo: 'Çek No', fieldBanka: 'Banka Adı', fieldCekSahibi: 'Çeki Veren',
       fieldKrediSure: 'Kaç ay?', fieldKrediTutar: 'Aylık Taksit Tutarı',
@@ -357,7 +358,58 @@ const TRANSLATIONS = {
       toastDeleted: 'Cari kartı silindi',
       toastHareketSaved: 'Hareket kaydedildi!',
       toastHareketDeleted: 'Hareket silindi',
-      errorLoad: 'Cari listesi yüklenemedi'
+      errorLoad: 'Cari listesi yüklenemedi',
+      ekstreTitle: 'Cari Ekstre',
+      hareketTitle: 'Hareket',
+      turBorcKisa: 'Borç', turAlacakKisa: 'Alacak',
+      turOdeme: 'Yapılan Ödeme', turTahsilat: 'Alınan Ödeme',
+      fromInvoice: 'faturadan',
+      fieldHesapTuru: 'Hesap Türü',
+      hesapTuruTedarikci: 'Tedarikçi', hesapTuruMusteri: 'Müşteri', hesapTuruDiger: 'Diğer',
+      fieldCariAdi: 'Cari Adı', fieldVergiNo: 'Vergi No', fieldTelefon: 'Telefon',
+      fieldEmail: 'E-posta', fieldVade: 'Vade', fieldAdres: 'Adres',
+      vadePlaceholder: 'Örn: 30 gün, 60 gün, Peşin',
+      fieldFaturaNo: 'Fatura No', faturaPlaceholder: 'Fatura numarası',
+      fieldVadeTarih: 'Vade (Tarih)'
+    },
+
+    // --- Faturalab ---
+    faturalab: {
+      title: 'Faturalab (Alınan Ödemeler / Çek İskontosu)',
+      colCari: 'Cari', colBelgeCek: 'Belge/Çek No', colOdemeSekli: 'Ödeme Şekli',
+      colTutar: 'Tutar', colTarih: 'Tarih', colVade: 'Vade', colKalanGun: 'Kalan Gün',
+      colDurum: 'Durum', colBanka: 'Banka',
+      empty: 'Alınan ödeme yok.',
+      iskontoTitle: 'Aylık İskonto Raporu',
+      colAy: 'Ay', colFaiz: 'Faiz', colBsmv: 'BSMV', colKomisyon: 'Komisyon', colNetNakit: 'Net Nakit',
+      iskontoEmpty: 'İskonto edilmiş fatura yok.',
+      iskontoHesapla: 'İskonto Hesapla',
+      fieldFaiz: 'Faiz (₺)', fieldBsmv: 'BSMV (₺)', fieldKomisyon: 'Komisyon (₺)',
+      fieldBanka: 'Banka', bankaPlaceholder: 'İskonto yapılan banka',
+      haneyeGiren: 'Haneye Giren Nakit',
+      nakiteCevir: 'Nakite Çevir',
+      iskontoBtn: 'İskonto',
+      durumIskonto: 'İskonto Edildi', durumVadeli: 'Vadeli',
+      toplam: 'Toplam', net: 'Net:'
+    },
+
+    // --- Paketleme ---
+    paketleme: {
+      title: 'Paketleme Malzemeleri',
+      colMalzeme: 'Malzeme', colAlinan: 'Alınan', colBirimFiyat: 'Son Birim Fiyat',
+      colTuketilen: 'Tüketilen', colKalan: 'Kalan Stok',
+      alimlarTitle: 'Toplu Alımlar',
+      colAlimTarih: 'Tarih', colAlimMalzeme: 'Malzeme', colAlimBelge: 'Belge No',
+      colAlimAdet: 'Adet', colAlimTutar: 'Toplam Tutar', colAlimBirim: 'Birim', colAlimCari: 'Cari',
+      malzemeEmpty: 'Henüz malzeme yok.', alimEmpty: 'Henüz alım yok.',
+      newMalzeme: 'Yeni Malzeme', editMalzeme: 'Malzeme Düzenle',
+      newAlim: 'Yeni Toplu Alım', editAlim: 'Alım Düzenle',
+      fieldMalzemeAdi: 'Malzeme Adı', fieldMalzeme: 'Malzeme',
+      fieldAdet: 'Adet', fieldTutar: 'Toplam Tutar (₺)', fieldCari: 'Cari (Tedarikçi)',
+      fieldBelgeNo: 'Belge No / Fatura No', fieldNotlar: 'Notlar',
+      belgePlaceholder: 'Fatura/belge numarası',
+      malzemePlaceholder: 'Koli, Jelatin, Lot Poşeti...',
+      btnTopluAlim: 'Toplu Alım'
     },
 
     // --- Aylar ---
@@ -420,7 +472,8 @@ const TRANSLATIONS = {
       gerceklesen: 'Actual Costs',
       odemeler: 'Payments',
       gelirTakip: 'Revenue',
-      cari: 'Accounts'
+      cari: 'Accounts',
+      faturalab: 'Invoice Lab'
     },
 
     fiyatlar: {
@@ -569,9 +622,9 @@ const TRANSLATIONS = {
       statusGecikti: 'Overdue', statusIptalO: 'Cancelled',
       typeNakit: 'Cash', typeCek: 'Check',
       typeKrediKarti: 'Credit Card',
-      typeBankaKredisi: 'Bank Loan', typeSpotKredi: 'Spot Credit', typeRotatifKredi: 'Revolving Credit', typeVadeliOdeme: 'Term Payment',
+      typeTaksitliKredi: 'Installment Credit', typeSpotKredi: 'Spot Credit', typeRotatifKredi: 'Revolving Credit', typeVadeliOdeme: 'Term Payment',
       typeKira: 'Rent', typeMaas: 'Salary', typeVergi: 'Tax',
-      fieldFirma: 'Company / Customer', fieldOdemeTuru: 'Payment Type', fieldTutar: 'Amount',
+      fieldFirma: 'Company / Customer', fieldCari: 'Account', fieldOdemeTuru: 'Payment Type', fieldTutar: 'Amount',
       fieldVade: 'Due Date', fieldAciklama: 'Description',
       fieldCekNo: 'Check No', fieldBanka: 'Bank Name', fieldCekSahibi: 'Check Issuer',
       fieldKrediSure: 'Duration (months)', fieldKrediTutar: 'Monthly Installment',
@@ -719,7 +772,58 @@ const TRANSLATIONS = {
       toastDeleted: 'Cari card deleted',
       toastHareketSaved: 'Transaction saved!',
       toastHareketDeleted: 'Transaction deleted',
-      errorLoad: 'Could not load cari list'
+      errorLoad: 'Could not load cari list',
+      ekstreTitle: 'Account Statement',
+      hareketTitle: 'Transaction',
+      turBorcKisa: 'Debit', turAlacakKisa: 'Credit',
+      turOdeme: 'Payment Made', turTahsilat: 'Payment Received',
+      fromInvoice: 'from invoice',
+      fieldHesapTuru: 'Account Type',
+      hesapTuruTedarikci: 'Supplier', hesapTuruMusteri: 'Customer', hesapTuruDiger: 'Other',
+      fieldCariAdi: 'Account Name', fieldVergiNo: 'Tax No', fieldTelefon: 'Phone',
+      fieldEmail: 'E-mail', fieldVade: 'Term', fieldAdres: 'Address',
+      vadePlaceholder: 'e.g. 30 days, 60 days, Cash',
+      fieldFaturaNo: 'Invoice No', faturaPlaceholder: 'Invoice number',
+      fieldVadeTarih: 'Due Date'
+    },
+
+    // --- Faturalab ---
+    faturalab: {
+      title: 'Invoice Lab (Received Payments / Check Discount)',
+      colCari: 'Account', colBelgeCek: 'Doc/Check No', colOdemeSekli: 'Method',
+      colTutar: 'Amount', colTarih: 'Date', colVade: 'Due Date', colKalanGun: 'Days Left',
+      colDurum: 'Status', colBanka: 'Bank',
+      empty: 'No received payments.',
+      iskontoTitle: 'Monthly Discount Report',
+      colAy: 'Month', colFaiz: 'Interest', colBsmv: 'BSMV', colKomisyon: 'Commission', colNetNakit: 'Net Cash',
+      iskontoEmpty: 'No discounted invoices.',
+      iskontoHesapla: 'Calculate Discount',
+      fieldFaiz: 'Interest (₺)', fieldBsmv: 'BSMV (₺)', fieldKomisyon: 'Commission (₺)',
+      fieldBanka: 'Bank', bankaPlaceholder: 'Bank where discounted',
+      haneyeGiren: 'Net Cash In',
+      nakiteCevir: 'Convert to Cash',
+      iskontoBtn: 'Discount',
+      durumIskonto: 'Discounted', durumVadeli: 'Term',
+      toplam: 'Total', net: 'Net:'
+    },
+
+    // --- Paketleme ---
+    paketleme: {
+      title: 'Packaging Materials',
+      colMalzeme: 'Material', colAlinan: 'Purchased', colBirimFiyat: 'Last Unit Price',
+      colTuketilen: 'Consumed', colKalan: 'Stock Left',
+      alimlarTitle: 'Bulk Purchases',
+      colAlimTarih: 'Date', colAlimMalzeme: 'Material', colAlimBelge: 'Doc No',
+      colAlimAdet: 'Qty', colAlimTutar: 'Total Amount', colAlimBirim: 'Unit', colAlimCari: 'Account',
+      malzemeEmpty: 'No materials yet.', alimEmpty: 'No purchases yet.',
+      newMalzeme: 'New Material', editMalzeme: 'Edit Material',
+      newAlim: 'New Bulk Purchase', editAlim: 'Edit Purchase',
+      fieldMalzemeAdi: 'Material Name', fieldMalzeme: 'Material',
+      fieldAdet: 'Qty', fieldTutar: 'Total Amount (₺)', fieldCari: 'Account (Supplier)',
+      fieldBelgeNo: 'Doc / Invoice No', fieldNotlar: 'Notes',
+      belgePlaceholder: 'Invoice/doc number',
+      malzemePlaceholder: 'Box, Gelatin, Lot Bag...',
+      btnTopluAlim: 'Bulk Purchase'
     },
 
     months: ['January','February','March','April','May','June',

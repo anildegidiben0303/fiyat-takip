@@ -25,8 +25,8 @@ function getLang(req) {
 // --- çok kullanıcılı auth sistemi ---
 
 const ROLE_PERMISSIONS = {
-  admin: ['fiyatlar','siparisler','gerceklesen','odemeler','bant','kullanicilar','gelir_takip','cari'],
-  muhasebe: ['fiyatlar','gerceklesen','odemeler','gelir_takip','cari'],
+  admin: ['fiyatlar','siparisler','gerceklesen','odemeler','bant','kullanicilar','gelir_takip','cari','faturalab'],
+  muhasebe: ['fiyatlar','gerceklesen','odemeler','gelir_takip','cari','faturalab'],
   operasyon: ['siparisler','gerceklesen','bant'],
   satis: ['fiyatlar','siparisler']
 };
@@ -180,6 +180,20 @@ try { db.exec('ALTER TABLE siparisler ADD COLUMN ld_test TEXT DEFAULT \'\''); } 
 try { db.exec('ALTER TABLE siparisler ADD COLUMN bulk_test TEXT DEFAULT \'\''); } catch (e) { /* zaten var */ }
 try { db.exec('ALTER TABLE siparisler ADD COLUMN gold_test TEXT DEFAULT \'\''); } catch (e) { /* zaten var */ }
 try { db.exec('ALTER TABLE siparisler ADD COLUMN termin_detay TEXT DEFAULT \'[]\''); } catch (e) { /* zaten var */ }
+try { db.exec('ALTER TABLE siparisler ADD COLUMN mt TEXT DEFAULT \'\''); } catch (e) { /* zaten var */ }
+try { db.exec('ALTER TABLE siparisler ADD COLUMN aksesuar TEXT DEFAULT \'\''); } catch (e) { /* zaten var */ }
+
+// --- MT (takım eden) kişiler tablosu ---
+db.exec(`
+  CREATE TABLE IF NOT EXISTS mt_kisiler (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    isim TEXT NOT NULL UNIQUE
+  )
+`);
+// varsayılan MT kişileri
+['ANIL', 'NURCAN'].forEach(isim => {
+  db.prepare('INSERT OR IGNORE INTO mt_kisiler (isim) VALUES (?)').run(isim);
+});
 
 // --- gerçekleşen (maliyet) tablosu ---
 db.exec(`
@@ -218,6 +232,8 @@ try { db.exec('ALTER TABLE gerceklesen ADD COLUMN baski_nakis_yikama REAL DEFAUL
 try { db.exec('ALTER TABLE gerceklesen ADD COLUMN baski_nakis_yikama_detay TEXT DEFAULT \'[]\''); } catch (e) { /* zaten var */ }
 try { db.exec('ALTER TABLE gerceklesen ADD COLUMN paketleme_bedeli REAL DEFAULT 0'); } catch (e) { /* zaten var */ }
 try { db.exec('ALTER TABLE gerceklesen ADD COLUMN nakliye_bedeli REAL DEFAULT 0'); } catch (e) { /* zaten var */ }
+try { db.exec('ALTER TABLE gerceklesen ADD COLUMN paketleme_cari_id INTEGER'); } catch (e) { /* zaten var */ }
+try { db.exec('ALTER TABLE gerceklesen ADD COLUMN nakliye_cari_id INTEGER'); } catch (e) { /* zaten var */ }
 
 // --- ödeme planı tablosu ---
 db.exec(`
@@ -245,6 +261,11 @@ try { db.exec('ALTER TABLE odemeler ADD COLUMN kredi_grup_id TEXT DEFAULT \'\'')
 try { db.exec('ALTER TABLE odemeler ADD COLUMN ana_para REAL DEFAULT 0'); } catch (e) { /* zaten var */ }
 try { db.exec('ALTER TABLE odemeler ADD COLUMN faiz_tutari REAL DEFAULT 0'); } catch (e) { /* zaten var */ }
 try { db.exec('ALTER TABLE odemeler ADD COLUMN bsmv_tutari REAL DEFAULT 0'); } catch (e) { /* zaten var */ }
+try { db.exec('ALTER TABLE odemeler ADD COLUMN tarih TEXT DEFAULT \'\''); } catch (e) { /* zaten var */ }
+try { db.exec('ALTER TABLE odemeler ADD COLUMN cari_id INTEGER'); } catch (e) { /* zaten var */ }
+try { db.exec('ALTER TABLE odemeler ADD COLUMN rotatif_ay INTEGER'); } catch (e) { /* zaten var */ }
+// migration: "Banka Kredisi" tanımı → "Taksitli Kredi"
+try { db.exec("UPDATE odemeler SET odeme_turu = 'Taksitli Kredi' WHERE odeme_turu = 'Banka Kredisi'"); } catch (e) { /* zaten uygulanmış */ }
 
 // --- aksesuar takip tablosu ---
 db.exec(`
@@ -292,6 +313,8 @@ try { db.exec('ALTER TABLE kumas_takip ADD COLUMN kumas_fiyati REAL DEFAULT 0');
 try { db.exec('ALTER TABLE kumas_takip ADD COLUMN kesim_adedi INTEGER DEFAULT 0'); } catch (e) { /* zaten var */ }
 try { db.exec('ALTER TABLE kumas_takip ADD COLUMN kesim_yuzdesi REAL DEFAULT 0'); } catch (e) { /* zaten var */ }
 try { db.exec('ALTER TABLE kumas_takip ADD COLUMN gerceklesen_birim REAL DEFAULT 0'); } catch (e) { /* zaten var */ }
+try { db.exec('ALTER TABLE kumas_takip ADD COLUMN fit_birim REAL DEFAULT 0'); } catch (e) { /* zaten var */ }
+try { db.exec('ALTER TABLE kumas_takip ADD COLUMN stok REAL DEFAULT 0'); } catch (e) { /* zaten var */ }
 
 // --- gelir takip tablosu ---
 db.exec(`
@@ -367,6 +390,10 @@ db.exec(`
 try { db.exec('ALTER TABLE cari_hareketler ADD COLUMN para_birimi TEXT DEFAULT \'TL\''); } catch (e) { /* zaten var */ }
 try { db.exec('ALTER TABLE cari_hareketler ADD COLUMN belge_no TEXT DEFAULT \'\''); } catch (e) { /* zaten var */ }
 try { db.exec('ALTER TABLE cari_hareketler ADD COLUMN odeme_sekli TEXT DEFAULT \'\''); } catch (e) { /* zaten var */ }
+try { db.exec('ALTER TABLE cari_hareketler ADD COLUMN kaynak TEXT DEFAULT \'\''); } catch (e) { /* zaten var */ }
+try { db.exec('ALTER TABLE cari_hareketler ADD COLUMN vade TEXT DEFAULT \'\''); } catch (e) { /* zaten var */ }
+try { db.exec('ALTER TABLE cari_hareketler ADD COLUMN iskonto_detay TEXT DEFAULT \'\''); } catch (e) { /* zaten var */ }
+try { db.exec('ALTER TABLE cari_hareketler ADD COLUMN durum TEXT DEFAULT \'\''); } catch (e) { /* zaten var */ }
 
 // mevcut admin/muhasebe kullanıcılarına cari yetkisi ekle
 try {
@@ -376,6 +403,19 @@ try {
     try { perms = JSON.parse(user.permissions || '[]'); } catch(e) { perms = []; }
     if (!perms.includes('cari')) {
       perms.push('cari');
+      db.prepare('UPDATE kullanicilar SET permissions = ? WHERE id = ?').run(JSON.stringify(perms), user.id);
+    }
+  });
+} catch (e) { /* ignore */ }
+
+// mevcut admin/muhasebe kullanıcılarına faturalab yetkisi ekle
+try {
+  const flUsers = db.prepare("SELECT id, permissions FROM kullanicilar WHERE (rol = 'admin' OR rol = 'muhasebe') AND (permissions IS NULL OR permissions NOT LIKE '%faturalab%')").all();
+  flUsers.forEach(user => {
+    let perms = [];
+    try { perms = JSON.parse(user.permissions || '[]'); } catch(e) { perms = []; }
+    if (!perms.includes('faturalab')) {
+      perms.push('faturalab');
       db.prepare('UPDATE kullanicilar SET permissions = ? WHERE id = ?').run(JSON.stringify(perms), user.id);
     }
   });
@@ -391,6 +431,31 @@ db.exec(`
 // varsayılanları ekle
 db.prepare("INSERT OR IGNORE INTO ayarlar (anahtar, deger) VALUES ('paketleme_birim_fiyat', '2.65')").run();
 db.prepare("INSERT OR IGNORE INTO ayarlar (anahtar, deger) VALUES ('nakliye_birim_fiyat', '2.00')").run();
+
+// --- paketleme malzemeleri (stok + tüketim) ---
+db.exec(`
+  CREATE TABLE IF NOT EXISTS paketleme_malzemeleri (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    adi TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+  )
+`);
+db.exec(`
+  CREATE TABLE IF NOT EXISTS paketleme_alimlar (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    malzeme_id INTEGER NOT NULL,
+    adet REAL NOT NULL DEFAULT 0,
+    toplam_tutar REAL NOT NULL DEFAULT 0,
+    birim_fiyat REAL DEFAULT 0,
+    cari_id INTEGER,
+    tarih TEXT NOT NULL DEFAULT (date('now')),
+    belge_no TEXT DEFAULT '',
+    notlar TEXT DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+  )
+`);
+try { db.exec('ALTER TABLE paketleme_alimlar ADD COLUMN belge_no TEXT DEFAULT \'\''); } catch (e) { /* zaten var */ }
+try { db.exec('ALTER TABLE gerceklesen ADD COLUMN paketleme_malzeme_detay TEXT DEFAULT \'[]\''); } catch (e) { /* zaten var */ }
 
 // kullanıcılar tablosu
 db.exec(`
@@ -424,6 +489,57 @@ if (!adminVar) {
   db.prepare('INSERT INTO kullanicilar (username, password_hash, rol, permissions) VALUES (?, ?, ?, ?)')
     .run('admin', hashPassword(ADMIN_DEFAULT_PASSWORD), 'admin', allPerms);
   console.log('✅ Varsayılan admin kullanıcısı oluşturuldu: admin');
+}
+
+// --- Cari senkronizasyon yardımcı fonksiyonu ---
+// Kaynak bazlı cari hareketlerini senkronize eder (fatura/gider → borç hareketi).
+// prefix: örn. 'kumas:12:' — entries: [{ kaynak, cari_id, tutar, aciklama, belge_no }]
+function cariSenkron(prefix, entries) {
+  const existing = db.prepare('SELECT * FROM cari_hareketler WHERE kaynak LIKE ?').all(prefix + '%');
+  const byKaynak = {};
+  existing.forEach(e => { byKaynak[e.kaynak] = e; });
+  const seen = new Set();
+
+  const bugun = new Date();
+  const today = bugun.getFullYear() + '-' + ('0' + (bugun.getMonth() + 1)).slice(-2) + '-' + ('0' + bugun.getDate()).slice(-2);
+
+  (entries || []).forEach(en => {
+    const key = en.kaynak;
+    seen.add(key);
+    const tutar = Math.round((parseFloat(en.tutar) || 0) * 100) / 100;
+    const cariId = en.cari_id ? parseInt(en.cari_id) : null;
+
+    if (!cariId || tutar <= 0) {
+      // cari seçilmemiş veya tutar yok → varsa sil
+      if (byKaynak[key]) db.prepare('DELETE FROM cari_hareketler WHERE id = ?').run(byKaynak[key].id);
+      return;
+    }
+
+    // cari kartı hâlâ var mı kontrol et (silinmiş cariye yazma)
+    const kart = db.prepare('SELECT id FROM cari_kartlar WHERE id = ?').get(cariId);
+    if (!kart) {
+      if (byKaynak[key]) db.prepare('DELETE FROM cari_hareketler WHERE id = ?').run(byKaynak[key].id);
+      return;
+    }
+
+    const tarih = en.tarih || today;
+    const tur = en.tur || 'borc';
+    const vade = en.vade || '';
+    const odemeSekli = en.odeme_sekli || '';
+    if (byKaynak[key]) {
+      db.prepare(`UPDATE cari_hareketler SET cari_id=?, tarih=?, tur=?, tutar=?, aciklama=?, belge_no=?, vade=?, odeme_sekli=? WHERE id=?`)
+        .run(cariId, tarih, tur, tutar, en.aciklama || '', en.belge_no || '', vade, odemeSekli, byKaynak[key].id);
+    } else {
+      db.prepare(`INSERT INTO cari_hareketler (cari_id, tarih, tur, tutar, para_birimi, aciklama, belge_no, odeme_sekli, vade, kaynak)
+        VALUES (?, ?, ?, ?, 'TL', ?, ?, ?, ?, ?)`)
+        .run(cariId, tarih, tur, tutar, en.aciklama || '', en.belge_no || '', odemeSekli, vade, key);
+    }
+  });
+
+  // artık kaynağı olmayan hareketleri sil
+  existing.forEach(e => {
+    if (!seen.has(e.kaynak)) db.prepare('DELETE FROM cari_hareketler WHERE id = ?').run(e.id);
+  });
 }
 
 // middleware
@@ -466,6 +582,15 @@ app.get('/api/config', (req, res) => {
     companySlug: COMPANY_SLUG,
     appUrl: APP_URL
   });
+});
+
+// cari adlarını dropdown için döndür (cari yetkisi olmasa da sipariş/gerçekleşen kullanıcıları görebilir)
+app.get('/api/cari-secenek', (req, res) => {
+  const token = req.headers['x-auth-token'] || req.query.token || '';
+  const user = getSession(token);
+  if (!user) return res.status(401).json({ hata: t(getLang(req), 'sessionInvalid') });
+  const rows = db.prepare('SELECT id, cari_adi, hesap_turu FROM cari_kartlar ORDER BY cari_adi ASC').all();
+  res.json(rows);
 });
 
 app.use(express.static(path.join(__dirname, 'public')));
@@ -1032,7 +1157,7 @@ app.get('/api/siparisler', async (req, res) => {
 
 // fiyat kaydını siparişe aktar (fiyattan sil, siparişe ekle)
 app.post('/api/siparisler', (req, res) => {
-  const { fiyat_id, termin, renk, miktar, renk_detay, fiyat } = req.body;
+  const { fiyat_id, termin, renk, miktar, renk_detay, fiyat, mt } = req.body;
   if (!fiyat_id) return res.status(400).json({ hata: t(getLang(req), 'fiyatIdRequired') });
   if (!fiyat) return res.status(400).json({ hata: 'Fiyat zorunludur' });
 
@@ -1070,8 +1195,8 @@ app.post('/api/siparisler', (req, res) => {
   const terminDetay = req.body.termin_detay || '[]';
 
   const stmt = db.prepare(`
-    INSERT INTO siparisler (musteri_adi, firma_adi, urun_aciklamasi, fiyat, para_birimi, miktar, tarih, notlar, gorsel, excel_dosya, termin, renk, renk_detay, termin_detay)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO siparisler (musteri_adi, firma_adi, urun_aciklamasi, fiyat, para_birimi, miktar, tarih, notlar, gorsel, excel_dosya, termin, renk, renk_detay, termin_detay, mt)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const info = stmt.run(
@@ -1088,7 +1213,8 @@ app.post('/api/siparisler', (req, res) => {
     yeniTermin,
     yeniRenk,
     finalRenkDetay,
-    terminDetay
+    terminDetay,
+    mt || ''
   );
 
   // fiyat kaydını sil (görsel dosyasına dokunma - siparişte de aynı görsel kullanılacak)
@@ -1163,7 +1289,7 @@ app.get('/api/siparisler/:id',(req,res)=>{const row=db.prepare('SELECT * FROM si
 const siparisUpdateUpload = karmaUpload.fields([{ name: 'gorsel', maxCount: 1 }, { name: 'excel_dosya', maxCount: 1 }]);
 
 app.put('/api/siparisler/:id', siparisUpdateUpload, (req, res) => {
-  const { musteri_adi, firma_adi, urun_aciklamasi, fiyat, para_birimi, miktar, tarih, notlar, durum, termin, renk, renk_detay, kumas_tamam, fit, ld_test, bulk_test, gold_test, termin_detay } = req.body;
+  const { musteri_adi, firma_adi, urun_aciklamasi, fiyat, para_birimi, miktar, tarih, notlar, durum, termin, renk, renk_detay, kumas_tamam, fit, ld_test, bulk_test, gold_test, termin_detay, mt, aksesuar } = req.body;
 
   if (!musteri_adi || !urun_aciklamasi || fiyat == null) {
     return res.status(400).json({ hata: t(getLang(req), 'fiyatRequired') });
@@ -1188,7 +1314,7 @@ app.put('/api/siparisler/:id', siparisUpdateUpload, (req, res) => {
 
   db.prepare(`
     UPDATE siparisler
-    SET musteri_adi=?, firma_adi=?, urun_aciklamasi=?, fiyat=?, para_birimi=?, miktar=?, tarih=?, notlar=?, durum=?, gorsel=?, termin=?, renk=?, renk_detay=?, excel_dosya=?, kumas_tamam=?, fit=?, ld_test=?, bulk_test=?, gold_test=?, termin_detay=?
+    SET musteri_adi=?, firma_adi=?, urun_aciklamasi=?, fiyat=?, para_birimi=?, miktar=?, tarih=?, notlar=?, durum=?, gorsel=?, termin=?, renk=?, renk_detay=?, excel_dosya=?, kumas_tamam=?, fit=?, ld_test=?, bulk_test=?, gold_test=?, termin_detay=?, mt=?, aksesuar=?
     WHERE id=?
   `).run(
     musteri_adi,
@@ -1211,6 +1337,8 @@ app.put('/api/siparisler/:id', siparisUpdateUpload, (req, res) => {
     bulk_test || '',
     gold_test || '',
     termin_detay || '[]',
+    mt || '',
+    aksesuar || '',
     req.params.id
   );
 
@@ -1240,6 +1368,26 @@ app.put('/api/siparisler/:id', siparisUpdateUpload, (req, res) => {
   }
 
   res.json({ mesaj: t(getLang(req), 'siparisUpdated') });
+});
+
+// --- MT (takım eden) kişiler ---
+app.get('/api/mt-kisiler', requirePermission('siparisler'), (req, res) => {
+  const rows = db.prepare('SELECT * FROM mt_kisiler ORDER BY isim ASC').all();
+  res.json(rows);
+});
+
+app.post('/api/mt-kisiler', requirePermission('siparisler'), (req, res) => {
+  const ad = String((req.body && req.body.isim) || '').trim().toUpperCase();
+  if (!ad) return res.status(400).json({ hata: 'İsim boş olamaz' });
+  const mevcut = db.prepare('SELECT id FROM mt_kisiler WHERE isim = ?').get(ad);
+  if (mevcut) return res.status(400).json({ hata: 'Bu isim zaten var' });
+  const info = db.prepare('INSERT INTO mt_kisiler (isim) VALUES (?)').run(ad);
+  res.status(201).json({ id: info.lastInsertRowid, isim: ad });
+});
+
+app.delete('/api/mt-kisiler/:id', requirePermission('siparisler'), (req, res) => {
+  db.prepare('DELETE FROM mt_kisiler WHERE id = ?').run(req.params.id);
+  res.json({ mesaj: 'Silindi' });
 });
 
 // sipariş sil (görseli de sil)
@@ -1383,6 +1531,21 @@ app.put('/api/aksesuar/:id', (req, res) => {
     UPDATE aksesuar_takip SET aksesuar_adi=?, siparis_adet=?, gelen_adet=?, birim_fiyat=?, notlar=?, gelen_detay=? WHERE id=?
   `).run(aksesuar_adi, siparis_adet || 0, gelenAdet, birim_fiyat !== undefined ? birim_fiyat : (eski.birim_fiyat || 0), notlar || '', detayJson, req.params.id);
 
+  // cari senkron: aksesuar sevkiyat faturaları → borç
+  let aksDetayArr = [];
+  try { aksDetayArr = typeof detayJson === 'string' ? JSON.parse(detayJson) : (detayJson || []); } catch(e) { aksDetayArr = []; }
+  if (!Array.isArray(aksDetayArr)) aksDetayArr = [];
+  const aksKaynak = 'aksesuar:' + req.params.id + ':';
+  const aksEntries = aksDetayArr.map((d, i) => ({
+    kaynak: aksKaynak + i,
+    cari_id: d.cari_id,
+    tutar: ((parseFloat(d.tutar) || 0) + (parseFloat(d.kdv) || 0)) || (parseFloat(d.vergi_dahil) || 0),
+    tarih: d.tarih || '',
+    aciklama: (aksesuar_adi || '') + (d.aciklama ? ' - ' + d.aciklama : '') + (d.fatura ? ' - ' + d.fatura : ''),
+    belge_no: d.belge_no || d.fatura || ''
+  }));
+  cariSenkron(aksKaynak, aksEntries);
+
   res.json({ mesaj: t(getLang(req), 'aksesuarUpdated'), gelen_adet: gelenAdet });
 });
 
@@ -1391,10 +1554,67 @@ app.delete('/api/aksesuar/:id', (req, res) => {
   const eski = db.prepare('SELECT * FROM aksesuar_takip WHERE id = ?').get(req.params.id);
   if (!eski) return res.status(404).json({ hata: t(getLang(req), 'aksesuarNotFound') });
   db.prepare('DELETE FROM aksesuar_takip WHERE id = ?').run(req.params.id);
+  cariSenkron('aksesuar:' + req.params.id + ':', []);
   res.json({ mesaj: t(getLang(req), 'aksesuarDeleted') });
 });
 
 // --- KUMAŞ TAKİP API ---
+
+function kumasBirimGiderHesapla(pb, ke, kg, fr, asorti, biye) {
+  const as = parseFloat(asorti) || 1;
+  return as > 0 ? (pb * ke * kg * (1 + fr / 100)) / as + biye : 0;
+}
+
+// bir siparişin (modelin) tüm renk varyantlarını döndür
+function siparisRenkleri(siparisId) {
+  const s = db.prepare('SELECT renk, renk_detay FROM siparisler WHERE id = ?').get(siparisId);
+  if (!s) return [];
+  const set = new Set();
+  if (s.renk) set.add(String(s.renk));
+  try {
+    const d = JSON.parse(s.renk_detay || '[]');
+    if (Array.isArray(d)) d.forEach(x => { if (x && x.renk) set.add(String(x.renk)); });
+  } catch (e) {}
+  return [...set];
+}
+
+// kumaşın fabrika alanlarını (ad, pastal boyu, en, gramaj, fire, biye) aynı modelin diğer renk varyantlarına yay
+// eskiAd: kaynak satırın eski kumaş adı (isim değişikliğinde eşleştirme için)
+function kumasVaryantlaraYay(siparisId, kaynakRenk, eskiAd, d) {
+  const yeniAd = d.kumas_adi || '';
+  if (!yeniAd) return;
+  const hedefler = siparisRenkleri(siparisId).filter(r => r && r !== kaynakRenk);
+  if (hedefler.length === 0) return;
+
+  const pb = parseFloat(d.pastal_boyu) || 0;
+  const ke = parseFloat(d.kumas_en) || 0;
+  const kg = parseFloat(d.kumas_gramaj) || 0;
+  const fr = parseFloat(d.fire) || 0;
+  const by = parseFloat(d.biye) || 0;
+  const asKaynak = parseFloat(d.asorti) || 1;
+  const adDegisti = eskiAd && eskiAd !== yeniAd;
+
+  for (const r of hedefler) {
+    // isim değiştiyse önce eski isimle eşleşen satırı bul (rename senaryosu)
+    const eskiAdaGore = adDegisti
+      ? db.prepare('SELECT * FROM kumas_takip WHERE siparis_id = ? AND renk = ? AND kumas_adi = ?').get(siparisId, r, eskiAd)
+      : null;
+    const yeniAdaGore = db.prepare('SELECT * FROM kumas_takip WHERE siparis_id = ? AND renk = ? AND kumas_adi = ?').get(siparisId, r, yeniAd);
+    const hedef = eskiAdaGore || yeniAdaGore;
+
+    if (hedef) {
+      const as = parseFloat(hedef.asorti) || 1;
+      const birim = kumasBirimGiderHesapla(pb, ke, kg, fr, as, by);
+      db.prepare('UPDATE kumas_takip SET kumas_adi=?, pastal_boyu=?, kumas_en=?, kumas_gramaj=?, fire=?, biye=?, birim_gider=? WHERE id=?')
+        .run(yeniAd, pb, ke, kg, fr, by, birim, hedef.id);
+    } else {
+      const birim = kumasBirimGiderHesapla(pb, ke, kg, fr, asKaynak, by);
+      db.prepare(`INSERT INTO kumas_takip (siparis_id, kumas_adi, renk, adet, pastal_boyu, kumas_en, kumas_gramaj, fire, asorti, biye, birim_gider, kumas_fiyati, kesim_adedi, kesim_yuzdesi, gerceklesen_birim, fit_birim, stok, notlar, gelen_detay)
+        VALUES (?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0, '', '[]')`)
+        .run(siparisId, yeniAd, r, pb, ke, kg, fr, asKaynak, by, birim);
+    }
+  }
+}
 
 // siparişe ait kumaşları listele
 app.get('/api/siparisler/:id/kumas', (req, res) => {
@@ -1410,11 +1630,11 @@ app.get('/api/siparisler/:id/kumas', (req, res) => {
 
 // yeni kumaş ekle
 app.post('/api/siparisler/:id/kumas', (req, res) => {
-  const { kumas_adi, renk, adet, pastal_boyu, kumas_en, kumas_gramaj, fire, asorti, biye, kumas_fiyati, kesim_adedi, kesim_yuzdesi, notlar } = req.body;
+  const { kumas_adi, renk, adet, pastal_boyu, kumas_en, kumas_gramaj, fire, asorti, biye, kumas_fiyati, kesim_adedi, kesim_yuzdesi, fit_birim, stok, notlar } = req.body;
   const info = db.prepare(`
-    INSERT INTO kumas_takip (siparis_id, kumas_adi, renk, adet, pastal_boyu, kumas_en, kumas_gramaj, fire, asorti, biye, birim_gider, kumas_fiyati, kesim_adedi, kesim_yuzdesi, gerceklesen_birim, notlar)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(req.params.id, kumas_adi || '', renk || '', adet || 0, pastal_boyu || 0, kumas_en || 0, kumas_gramaj || 0, fire || 0, asorti || 1, biye || 0, 0, kumas_fiyati || 0, kesim_adedi || 0, kesim_yuzdesi || 0, 0, notlar || '');
+    INSERT INTO kumas_takip (siparis_id, kumas_adi, renk, adet, pastal_boyu, kumas_en, kumas_gramaj, fire, asorti, biye, birim_gider, kumas_fiyati, kesim_adedi, kesim_yuzdesi, gerceklesen_birim, fit_birim, stok, notlar)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(req.params.id, kumas_adi || '', renk || '', adet || 0, pastal_boyu || 0, kumas_en || 0, kumas_gramaj || 0, fire || 0, asorti || 1, biye || 0, 0, kumas_fiyati || 0, kesim_adedi || 0, kesim_yuzdesi || 0, 0, fit_birim || 0, stok || 0, notlar || '');
   res.status(201).json({ id: info.lastInsertRowid, mesaj: t(getLang(req), 'kumasCreated') });
 });
 
@@ -1427,7 +1647,7 @@ app.get('/api/kumas/:id', (req, res) => {
 
 // kumaş güncelle (hesaplamaları yap)
 app.put('/api/kumas/:id', (req, res) => {
-  const { kumas_adi, renk, adet, pastal_boyu, kumas_en, kumas_gramaj, fire, asorti, biye, kumas_fiyati, kesim_adedi, kesim_yuzdesi, notlar, gelen_detay } = req.body;
+  const { kumas_adi, renk, adet, pastal_boyu, kumas_en, kumas_gramaj, fire, asorti, biye, kumas_fiyati, kesim_adedi, kesim_yuzdesi, fit_birim, stok, notlar, gelen_detay } = req.body;
   const eski = db.prepare('SELECT * FROM kumas_takip WHERE id = ?').get(req.params.id);
   if (!eski) return res.status(404).json({ hata: t(getLang(req), 'kumasNotFound') });
 
@@ -1457,12 +1677,25 @@ app.put('/api/kumas/:id', (req, res) => {
       detayJson = JSON.stringify(detay);
     }
   } catch(e) { detayJson = gelen_detay || '[]'; }
-  const gerceklesenBirim = ka > 0 ? Math.round((toplamGelenKumas / ka) * 1000) / 1000 : 0;
+  const stokMiktar = parseFloat(stok) || 0;
+  const gerceklesenBirim = ka > 0 ? Math.round(((toplamGelenKumas - stokMiktar) / ka) * 1000) / 1000 : 0;
 
   db.prepare(`
-    UPDATE kumas_takip SET kumas_adi=?, renk=?, adet=?, pastal_boyu=?, kumas_en=?, kumas_gramaj=?, fire=?, asorti=?, biye=?, birim_gider=?, kumas_fiyati=?, kesim_adedi=?, kesim_yuzdesi=?, gerceklesen_birim=?, notlar=?, gelen_detay=?
+    UPDATE kumas_takip SET kumas_adi=?, renk=?, adet=?, pastal_boyu=?, kumas_en=?, kumas_gramaj=?, fire=?, asorti=?, biye=?, birim_gider=?, kumas_fiyati=?, kesim_adedi=?, kesim_yuzdesi=?, gerceklesen_birim=?, fit_birim=?, stok=?, notlar=?, gelen_detay=?
     WHERE id=?
-  `).run(kumas_adi || '', renk || '', ad, pastal_boyu || 0, kumas_en || 0, kumas_gramaj || 0, fire || 0, asorti || 1, biye || 0, birimGider, kumas_fiyati || 0, ka, hesaplananKesimYuzdesi, gerceklesenBirim, notlar || '', detayJson, req.params.id);
+  `).run(kumas_adi || '', renk || '', ad, pastal_boyu || 0, kumas_en || 0, kumas_gramaj || 0, fire || 0, asorti || 1, biye || 0, birimGider, kumas_fiyati || 0, ka, hesaplananKesimYuzdesi, gerceklesenBirim, fit_birim || 0, stokMiktar, notlar || '', detayJson, req.params.id);
+
+  // kumaşın fabrika alanları (ad, pastal boyu, en, gramaj, fire, biye) değiştiyse aynı modelin diğer renk varyantlarına yay
+  const fabrikaDegisti =
+    (eski.kumas_adi || '') !== (kumas_adi || '') ||
+    (parseFloat(eski.pastal_boyu) || 0) !== pb ||
+    (parseFloat(eski.kumas_en) || 0) !== ke ||
+    (parseFloat(eski.kumas_gramaj) || 0) !== kg ||
+    (parseFloat(eski.fire) || 0) !== fr ||
+    (parseFloat(eski.biye) || 0) !== by;
+  if (fabrikaDegisti) {
+    kumasVaryantlaraYay(eski.siparis_id, eski.renk || '', eski.kumas_adi || '', { kumas_adi: kumas_adi || '', pastal_boyu: pb, kumas_en: ke, kumas_gramaj: kg, fire: fr, biye: by, asorti: as });
+  }
 
   // gerçekleşen varsa kesim adedini güncelle
   const siparisId = eski.siparis_id;
@@ -1471,6 +1704,21 @@ app.put('/api/kumas/:id', (req, res) => {
     const toplamKesim = db.prepare('SELECT COALESCE(SUM(kesim_adedi), 0) as toplam FROM kumas_takip WHERE siparis_id = ?').get(siparisId);
     db.prepare('UPDATE gerceklesen SET kesim_adedi = ? WHERE id = ?').run(toplamKesim.toplam, gerceklesen.id);
   }
+
+  // cari senkron: kumaş sevkiyat faturaları → borç
+  let kumasDetayArr = [];
+  try { kumasDetayArr = typeof detayJson === 'string' ? JSON.parse(detayJson) : (detayJson || []); } catch(e) { kumasDetayArr = []; }
+  if (!Array.isArray(kumasDetayArr)) kumasDetayArr = [];
+  const kumasKaynak = 'kumas:' + req.params.id + ':';
+  const kumasEntries = kumasDetayArr.map((d, i) => ({
+    kaynak: kumasKaynak + i,
+    cari_id: d.cari_id,
+    tutar: ((parseFloat(d.tutar) || 0) + (parseFloat(d.kdv) || 0)) || (parseFloat(d.vergi_dahil) || 0),
+    tarih: d.tarih || '',
+    aciklama: (kumas_adi || '') + (renk ? ' (' + renk + ')' : '') + (d.fatura ? ' - ' + d.fatura : ''),
+    belge_no: d.belge_no || d.fatura || ''
+  }));
+  cariSenkron(kumasKaynak, kumasEntries);
 
   res.json({ mesaj: t(getLang(req), 'kumasUpdated'), birim_gider: Math.round(birimGider * 100) / 100, kumas_siparis: Math.round(kumasSiparis * 100) / 100, kesim_yuzdesi: hesaplananKesimYuzdesi, gerceklesen_birim: gerceklesenBirim });
 });
@@ -1508,6 +1756,7 @@ app.delete('/api/kumas/:id', (req, res) => {
   const eski = db.prepare('SELECT * FROM kumas_takip WHERE id = ?').get(req.params.id);
   if (!eski) return res.status(404).json({ hata: t(getLang(req), 'kumasNotFound') });
   db.prepare('DELETE FROM kumas_takip WHERE id = ?').run(req.params.id);
+  cariSenkron('kumas:' + req.params.id + ':', []);
   res.json({ mesaj: t(getLang(req), 'kumasDeleted') });
 });
 
@@ -1821,22 +2070,6 @@ app.post('/api/gerceklesen', (req, res) => {
     siparis.termin || ''
   );
 
-  // Auto-create gelir_takip entry
-  const gelirMevcut = db.prepare('SELECT id FROM gelir_takip WHERE siparis_id = ?').get(siparis.id);
-  if (!gelirMevcut) {
-    db.prepare(`
-      INSERT INTO gelir_takip (siparis_id, musteri_adi, firma_adi, urun_aciklamasi, toplam_tutar, para_birimi)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(
-      siparis.id,
-      siparis.musteri_adi,
-      siparis.firma_adi,
-      siparis.urun_aciklamasi,
-      siparis.fiyat * (siparis.miktar || 1),
-      siparis.para_birimi
-    );
-  }
-
   res.status(201).json({ id: info.lastInsertRowid, mesaj: t(getLang(req), 'gerceklesenCreated') });
 });
 
@@ -1844,7 +2077,7 @@ app.post('/api/gerceklesen', (req, res) => {
 app.put('/api/gerceklesen/:id', excelUpload.single('excel_dosya'), (req, res) => {
   const { musteri_adi, firma_adi, urun_aciklamasi, fiyat, para_birimi, miktar,
           kesim_adedi, yuklenen_adet, ikinci_kalite, kumas_bedeli, aksesuar_bedeli, iscilik_bedeli, satis_toplam, termin,
-          yuklenen_adet_detay, satis_toplam_detay, kumas_bedeli_detay, aksesuar_bedeli_detay, iscilik_bedeli_detay, baski_nakis_yikama, baski_nakis_yikama_detay, paketleme_bedeli, nakliye_bedeli } = req.body;
+          yuklenen_adet_detay, satis_toplam_detay, kumas_bedeli_detay, aksesuar_bedeli_detay, iscilik_bedeli_detay, baski_nakis_yikama, baski_nakis_yikama_detay, paketleme_malzeme_detay, paketleme_bedeli, nakliye_bedeli } = req.body;
 
   if (!musteri_adi || !urun_aciklamasi || fiyat == null) {
     return res.status(400).json({ hata: t(getLang(req), 'fiyatRequired') });
@@ -1863,11 +2096,34 @@ app.put('/api/gerceklesen/:id', excelUpload.single('excel_dosya'), (req, res) =>
     excelYolu = 'uploads/' + excelAdi;
   }
 
+  const nakliyeCari = req.body.nakliye_cari_id ? parseInt(req.body.nakliye_cari_id) : null;
+
+  // paketleme malzeme tüketimi (stoktan) → paketleme bedelini hesapla
+  let pakDetayArr = [];
+  try { pakDetayArr = typeof paketleme_malzeme_detay === 'string' ? JSON.parse(paketleme_malzeme_detay) : (paketleme_malzeme_detay || []); } catch(e) { pakDetayArr = []; }
+  if (!Array.isArray(pakDetayArr)) pakDetayArr = [];
+  let paketlemeBedeli = parseFloat(paketleme_bedeli) || 0; // legacy/manual yedek
+  if (pakDetayArr.length > 0) {
+    let pakToplam = 0;
+    pakDetayArr = pakDetayArr.map(d => {
+      const mid = d.malzeme_id ? parseInt(d.malzeme_id) : null;
+      const adet = parseFloat(d.adet) || 0;
+      if (mid == null || adet <= 0) return null;
+      const mat = db.prepare('SELECT adi FROM paketleme_malzemeleri WHERE id = ?').get(mid);
+      const birim = paketlemeBirimFiyat(mid);
+      const tutar = Math.round((birim * adet) * 100) / 100;
+      pakToplam += tutar;
+      return { malzeme_id: mid, adi: mat ? mat.adi : '', adet, birim_fiyat: birim, tutar };
+    }).filter(Boolean);
+    paketlemeBedeli = Math.round(pakToplam * 100) / 100;
+  }
+  const pakDetayJson = JSON.stringify(pakDetayArr);
+
   db.prepare(`
     UPDATE gerceklesen
     SET musteri_adi=?, firma_adi=?, urun_aciklamasi=?, fiyat=?, para_birimi=?, miktar=?,
         kesim_adedi=?, yuklenen_adet=?, ikinci_kalite=?, kumas_bedeli=?, aksesuar_bedeli=?, iscilik_bedeli=?, satis_toplam=?, termin=?, excel_dosya=?,
-        yuklenen_adet_detay=?, satis_toplam_detay=?, kumas_bedeli_detay=?, aksesuar_bedeli_detay=?, iscilik_bedeli_detay=?, baski_nakis_yikama=?, baski_nakis_yikama_detay=?, paketleme_bedeli=?, nakliye_bedeli=?
+        yuklenen_adet_detay=?, satis_toplam_detay=?, kumas_bedeli_detay=?, aksesuar_bedeli_detay=?, iscilik_bedeli_detay=?, baski_nakis_yikama=?, baski_nakis_yikama_detay=?, paketleme_bedeli=?, paketleme_malzeme_detay=?, nakliye_bedeli=?, nakliye_cari_id=?
     WHERE id=?
   `).run(
     musteri_adi,
@@ -1892,12 +2148,36 @@ app.put('/api/gerceklesen/:id', excelUpload.single('excel_dosya'), (req, res) =>
     iscilik_bedeli_detay || '[]',
     baski_nakis_yikama || 0,
     baski_nakis_yikama_detay || '[]',
-    paketleme_bedeli || 0,
+    paketlemeBedeli,
+    pakDetayJson,
     nakliye_bedeli || 0,
+    nakliyeCari,
     req.params.id
   );
 
-  res.json({ mesaj: t(getLang(req), 'gerceklesenUpdated') });
+  // cari senkron: gerçekleşen gider kalemleri → borç (paketleme artık stoktan, ayrı cari yok)
+  const gid = req.params.id;
+  const gkaynak = 'gerceklesen:' + gid + ':';
+  const gEntries = [];
+
+  let iscArr = []; try { iscArr = typeof iscilik_bedeli_detay === 'string' ? JSON.parse(iscilik_bedeli_detay) : (iscilik_bedeli_detay || []); } catch(e) { iscArr = []; }
+  if (!Array.isArray(iscArr)) iscArr = [];
+  iscArr.forEach((d, i) => gEntries.push({ kaynak: gkaynak + 'iscilik:' + i, cari_id: d.cari_id, tutar: ((parseFloat(d.deger) || 0) + (parseFloat(d.kdv) || 0)) || (parseFloat(d.vergi_dahil) || 0), tarih: d.tarih || '', aciklama: 'İşçilik' + (d.aciklama ? ' - ' + d.aciklama : ''), belge_no: d.belge_no || '' }));
+
+  let baskiArr = []; try { baskiArr = typeof baski_nakis_yikama_detay === 'string' ? JSON.parse(baski_nakis_yikama_detay) : (baski_nakis_yikama_detay || []); } catch(e) { baskiArr = []; }
+  if (!Array.isArray(baskiArr)) baskiArr = [];
+  baskiArr.forEach((d, i) => gEntries.push({ kaynak: gkaynak + 'baski:' + i, cari_id: d.cari_id, tutar: ((parseFloat(d.deger) || 0) + (parseFloat(d.kdv) || 0)) || (parseFloat(d.vergi_dahil) || 0), tarih: d.tarih || '', aciklama: 'Baskı/Nakış/Yıkama' + (d.aciklama ? ' - ' + d.aciklama : ''), belge_no: d.belge_no || '' }));
+
+  // satış toplamı satırları → alacak (müşteri bize borçlu)
+  let satisArr = []; try { satisArr = typeof satis_toplam_detay === 'string' ? JSON.parse(satis_toplam_detay) : (satis_toplam_detay || []); } catch(e) { satisArr = []; }
+  if (!Array.isArray(satisArr)) satisArr = [];
+  satisArr.forEach((d, i) => gEntries.push({ kaynak: gkaynak + 'satis:' + i, tur: 'alacak', cari_id: d.cari_id, tutar: ((parseFloat(d.deger) || 0) + (parseFloat(d.kdv) || 0)) || (parseFloat(d.vergi_dahil) || 0), tarih: d.tarih || '', aciklama: 'Satış' + (d.aciklama ? ' - ' + d.aciklama : ''), belge_no: d.belge_no || '' }));
+
+  gEntries.push({ kaynak: gkaynak + 'nakliye', cari_id: nakliyeCari, tutar: nakliye_bedeli, aciklama: 'Nakliye', belge_no: '' });
+
+  cariSenkron(gkaynak, gEntries);
+
+  res.json({ mesaj: t(getLang(req), 'gerceklesenUpdated'), paketleme_bedeli: paketlemeBedeli });
 });
 
 // gerçekleşen excel indir
@@ -1992,10 +2272,40 @@ app.patch('/api/gerceklesen/:id/durum', (req, res) => {
 // gerçekleşen sil
 app.delete('/api/gerceklesen/:id', (req, res) => {
   db.prepare('DELETE FROM gerceklesen WHERE id = ?').run(req.params.id);
+  cariSenkron('gerceklesen:' + req.params.id + ':', []);
   res.json({ mesaj: t(getLang(req), 'fiyatDeleted') });
 });
 
 // --- ÖDEME PLANI API ---
+
+// ödemelerdeki "Çek" ve "Nakit" kayıtlarını cariye yansıt (ödeme hareketi olarak)
+function odemeCariSenkron(odeme) {
+  const prefix = 'odeme:' + odeme.id + ':';
+  const entries = [];
+  const tur = odeme.odeme_turu || '';
+  const yansiyanlar = ['Çek', 'Nakit'];
+  if (yansiyanlar.includes(tur)) {
+    let cariId = odeme.cari_id ? parseInt(odeme.cari_id) : null;
+    // cari seçilmemişse firma adından birebir eşleştir
+    if (!cariId && odeme.firma_adi) {
+      const kart = db.prepare('SELECT id FROM cari_kartlar WHERE LOWER(cari_adi) = LOWER(?)').get(String(odeme.firma_adi).trim());
+      if (kart) cariId = kart.id;
+    }
+    const isCek = tur === 'Çek';
+    entries.push({
+      kaynak: prefix + 'odeme',
+      tur: 'odeme',
+      cari_id: cariId,
+      tutar: odeme.tutar,
+      tarih: odeme.tarih || odeme.vade_tarihi || '',
+      vade: isCek ? (odeme.vade_tarihi || '') : '',
+      odeme_sekli: isCek ? 'Çek' : 'Nakit',
+      aciklama: tur + (odeme.aciklama ? ' - ' + odeme.aciklama : ''),
+      belge_no: isCek ? (odeme.cek_no || '') : ''
+    });
+  }
+  cariSenkron(prefix, entries);
+}
 
 // tüm ödemeleri listele (filtrelerle)
 app.get('/api/odemeler', (req, res) => {
@@ -2013,59 +2323,77 @@ app.get('/api/odemeler', (req, res) => {
   res.json(rows);
 });
 
-// haftalık gruplandırılmış ödeme planı
+// haftalık gruplandırılmış ödeme planı (geçmiş haftalar dahil)
 app.get('/api/odemeler/haftalik', (req, res) => {
   const bugun = new Date();
   const bugunStr = bugun.toISOString().split('T')[0];
 
-  // bekleyen + geciken ödemeleri getir (gecikenler "Gecikti" durumuna çevrildiği için onları da kat)
+  // tüm ödemeler (iptal hariç) — geçmiş haftalarda ödenen/gecikenler de görünsün
   const rows = db.prepare(
-    "SELECT * FROM odemeler WHERE durum IN ('Bekliyor','Gecikti') ORDER BY vade_tarihi ASC"
+    "SELECT * FROM odemeler WHERE durum != 'İptal' ORDER BY vade_tarihi ASC"
   ).all();
 
-  // en uzak vadeye göre hafta sayısını hesapla
-  const enUzakVade = rows.reduce((max, r) => {
-    if (r.vade_tarihi > max) return r.vade_tarihi;
-    return max;
-  }, bugunStr);
-  const sonTarih = new Date(enUzakVade);
-  const haftaFarki = Math.ceil((sonTarih - bugun) / (7 * 24 * 60 * 60 * 1000));
-  const haftaSayisi = Math.max(haftaFarki + 2, 8); // en az 8 hafta, en uzak vadeye kadar
+  // en erken ve en geç vadeyi bul
+  let minDate = bugunStr;
+  let maxDate = bugunStr;
+  rows.forEach(r => {
+    if (r.vade_tarihi && r.vade_tarihi < minDate) minDate = r.vade_tarihi;
+    if (r.vade_tarihi && r.vade_tarihi > maxDate) maxDate = r.vade_tarihi;
+  });
 
+  // en az 8 hafta ileri; geriye tüm geçmişi göster (veri ne kadar eskiyse o kadar)
+  const sonTarih = new Date(maxDate);
+  const ileriHafta = Math.ceil((sonTarih - bugun) / (7 * 24 * 60 * 60 * 1000));
+  const haftaIleri = Math.max(ileriHafta + 2, 8);
+  const minDateObj = new Date(minDate);
+  const geriHafta = Math.ceil((bugun - minDateObj) / (7 * 24 * 60 * 60 * 1000));
+  const haftaGeri = geriHafta + 1;
+
+  // pazartesi tabanlı hafta dizisi oluştur (en eski vadeden en ileri vadeye)
   const haftalar = [];
-  for (let i = 0; i < haftaSayisi; i++) {
-    const baslangic = new Date(bugun);
-    baslangic.setDate(bugun.getDate() - bugun.getDay() + 1 + (i * 7)); // pazartesi
+  const baslangicBugun = new Date(bugun);
+  baslangicBugun.setDate(bugun.getDate() - bugun.getDay() + 1 - (haftaGeri * 7));
+  const toplamHafta = haftaGeri + haftaIleri;
+  for (let i = 0; i < toplamHafta && i < 1200; i++) {
+    const baslangic = new Date(baslangicBugun);
+    baslangic.setDate(baslangicBugun.getDate() + (i * 7));
     const bitis = new Date(baslangic);
-    bitis.setDate(baslangic.getDate() + 6); // pazar
+    bitis.setDate(baslangic.getDate() + 6);
 
-    const bStr = baslangic.toISOString().split('T')[0];
-    const btStr = bitis.toISOString().split('T')[0];
-
-    haftalar.push({ baslangic: bStr, bitis: btStr, odemeler: [], toplam_tutar: 0 });
+    haftalar.push({
+      baslangic: baslangic.toISOString().split('T')[0],
+      bitis: bitis.toISOString().split('T')[0],
+      odemeler: [],
+      toplam_tutar: 0,
+      odenen_tutar: 0
+    });
   }
 
   const gecikmis = [];
 
   rows.forEach(row => {
-    // "Gecikti" durumundaki kayıtları her durumda gecikmiş kutusuna at, vade geçmişse de gecikmiş
-    if (row.durum === 'Gecikti' || row.vade_tarihi < bugunStr) {
+    const vade = row.vade_tarihi || '';
+    // gecikmiş: vadesi geçmiş ama hâlâ ödenmemiş
+    if (row.durum === 'Gecikti' || (row.durum === 'Bekliyor' && vade && vade < bugunStr)) {
       gecikmis.push(row);
-      return;
     }
 
     for (const h of haftalar) {
-      if (row.vade_tarihi >= h.baslangic && row.vade_tarihi <= h.bitis) {
+      if (vade && vade >= h.baslangic && vade <= h.bitis) {
         h.odemeler.push(row);
-        h.toplam_tutar += row.tutar;
+        if (row.durum === 'Bekliyor' || row.durum === 'Gecikti') {
+          h.toplam_tutar += row.tutar;
+        } else if (row.durum === 'Tahsil Edildi') {
+          h.odenen_tutar += row.tutar;
+        }
         break;
       }
     }
   });
 
-  // gelecek toplam (bugünden sonraki tüm bekleyenler)
+  // gelecek toplam (bugünden sonraki bekleyen/gecikenler)
   const gelecek_toplam = rows
-    .filter(r => r.vade_tarihi >= bugunStr)
+    .filter(r => r.vade_tarihi >= bugunStr && (r.durum === 'Bekliyor' || r.durum === 'Gecikti'))
     .reduce((sum, r) => sum + r.tutar, 0);
 
   res.json({
@@ -2197,13 +2525,57 @@ app.get('/api/odemeler/aylik-birlestir', (req, res) => {
 
   // tüm ödemeleri getir
   const odemeler = db.prepare(
-    'SELECT id, firma_adi, odeme_turu, tutar, para_birimi, vade_tarihi, durum, cek_no, banka, ana_para, faiz_tutari, bsmv_tutari FROM odemeler ORDER BY vade_tarihi ASC'
+    'SELECT id, firma_adi, odeme_turu, tutar, para_birimi, vade_tarihi, durum, cek_no, banka, ana_para, faiz_tutari, bsmv_tutari, tarih, kredi_grup_id FROM odemeler ORDER BY vade_tarihi ASC'
   ).all();
 
-  // tüm gelirleri getir (çek detaylarıyla + TFS)
-  const gelirler = db.prepare(
-    'SELECT id, musteri_adi, firma_adi, toplam_tutar, nakit_tutar, cek_toplam, cek_detay, tarih, odeme_turu, tfs_detay FROM gelir_takip ORDER BY tarih ASC'
-  ).all();
+  // kredileri giderden ayır; kredi anaparası gelir, faiz/bsmv'si gider
+  const krediTurleri = ['Taksitli Kredi', 'Spot Kredi', 'Rotatif Kredi'];
+  const krediler = [];
+  const odemelerGider = [];
+  odemeler.forEach(o => {
+    if (krediTurleri.includes(o.odeme_turu)) krediler.push(o);
+    else odemelerGider.push(o);
+  });
+
+  const krediGruplari = {};
+  krediler.forEach(r => {
+    if (!r.tarih) return; // eski (tarihsiz) kredileri atla
+    const key = r.kredi_grup_id || ('id_' + r.id);
+    if (!krediGruplari[key]) krediGruplari[key] = { firma_adi: r.firma_adi, odeme_turu: r.odeme_turu, tutar: 0, ana_para: 0, tarih: r.tarih };
+    const g = krediGruplari[key];
+    g.tutar += (r.tutar || 0);
+    g.ana_para += (r.ana_para || 0);
+    if (r.tarih < g.tarih) g.tarih = r.tarih;
+  });
+  const krediGelirleri = Object.values(krediGruplari).map(g => ({
+    firma_adi: g.firma_adi,
+    odeme_turu: g.odeme_turu,
+    tutar: g.ana_para > 0 ? g.ana_para : g.tutar,
+    tarih: g.tarih
+  }));
+
+  // tüm gelirleri getir (cari alınan ödemeler; çekler vade tarihine göre, iskonto edilenler net + iskonto tarihiyle yansır)
+  const gelirlerRaw = db.prepare(`
+    SELECT h.id, c.cari_adi AS musteri_adi, c.cari_adi AS firma_adi, h.tutar AS toplam_tutar, h.tutar AS nakit_tutar, 0 AS cek_toplam, '' AS cek_detay, COALESCE(NULLIF(h.vade,''), h.tarih) AS tarih, '' AS odeme_turu, '[]' AS tfs_detay, h.durum, h.iskonto_detay
+    FROM cari_hareketler h
+    LEFT JOIN cari_kartlar c ON c.id = h.cari_id
+    WHERE h.tur = 'tahsilat'
+    ORDER BY COALESCE(NULLIF(h.vade,''), h.tarih) ASC
+  `).all();
+
+  const gelirler = gelirlerRaw.map(g => {
+    if (g.durum === 'iskonto_edildi' && g.iskonto_detay) {
+      try {
+        const d = JSON.parse(g.iskonto_detay);
+        if (parseFloat(d.net_tutar) > 0) {
+          g.toplam_tutar = d.net_tutar;
+          g.nakit_tutar = d.net_tutar;
+          if (d.tarih) g.tarih = d.tarih;
+        }
+      } catch(e) {}
+    }
+    return g;
+  });
 
   // çekleri kendi vade tarihlerine göre ayrıştır
   const gelirCekleri = [];
@@ -2283,6 +2655,11 @@ app.get('/api/odemeler/aylik-birlestir', (req, res) => {
     if (c.vade_tarihi && c.vade_tarihi > maxDate) maxDate = c.vade_tarihi;
   });
 
+  krediGelirleri.forEach(k => {
+    if (k.tarih && k.tarih < minDate) minDate = k.tarih;
+    if (k.tarih && k.tarih > maxDate) maxDate = k.tarih;
+  });
+
   // en az 12 ay ileriyi, en fazla 24 ay geriyi göster
   const minDateObj = new Date(minDate);
   const maxDateObj = new Date(maxDate);
@@ -2319,7 +2696,7 @@ app.get('/api/odemeler/aylik-birlestir', (req, res) => {
     if (a > 11) { a = 0; y++; }
   }
 
-  // ödemeleri aylara dağıt
+  // ödemeleri aylara dağıt (kredi kapama ve ara ödemeleri dahil gider olarak)
   odemeler.forEach(o => {
     if (!o.vade_tarihi) return;
     for (const h of aylar) {
@@ -2421,6 +2798,25 @@ app.get('/api/odemeler/aylik-birlestir', (req, res) => {
     }
   });
 
+  // kredileri aylık gelire ekle (gelir listesinde de görünsün)
+  krediGelirleri.forEach(k => {
+    for (const h of aylar) {
+      if (k.tarih >= h.baslangic && k.tarih <= h.bitis) {
+        h.gelir_kayitlari.push({
+          id: 0,
+          musteri_adi: k.odeme_turu,
+          firma_adi: k.firma_adi,
+          toplam_tutar: k.tutar,
+          nakit_tutar: k.tutar,
+          cek_toplam: 0,
+          tarih: k.tarih
+        });
+        h.gelir_toplam += k.tutar;
+        break;
+      }
+    }
+  });
+
   // bakiyeleri hesapla
   aylar.forEach(h => {
     h.bakiye = h.gelir_toplam - h.gider_toplam;
@@ -2438,7 +2834,7 @@ app.get('/api/odemeler/aylik-birlestir', (req, res) => {
   const gelecek_aylar = aylar.filter(h => h.baslangic >= buAyStr);
 
   // özet
-  const toplam_gelir = gelirler.reduce((s, g) => s + (g.toplam_tutar || 0), 0);
+  const toplam_gelir = gelirler.reduce((s, g) => s + (g.toplam_tutar || 0), 0) + krediGelirleri.reduce((s, k) => s + k.tutar, 0);
   const toplam_gider = odemeler.reduce((s, o) => s + o.tutar, 0);
 
   res.json({
@@ -2471,11 +2867,11 @@ app.get('/api/odemeler/genel-gider-yillik', (req, res) => {
   res.json(yillik);
 });
 
-// aylık kredi raporu (Banka Kredisi + Rotatif Kredi)
+// aylık kredi raporu (Taksitli Kredi + Rotatif Kredi)
 app.get('/api/odemeler/kredi-aylik', (req, res) => {
   const rows = db.prepare(`
     SELECT * FROM odemeler
-    WHERE (odeme_turu = 'Banka Kredisi' OR odeme_turu = 'Rotatif Kredi')
+    WHERE (odeme_turu = 'Taksitli Kredi' OR odeme_turu = 'Rotatif Kredi')
       AND vade_tarihi >= '2024-12-01'
     ORDER BY vade_tarihi ASC
   `).all();
@@ -2530,20 +2926,27 @@ app.get('/api/odemeler/:id', (req, res) => {
 
 // yeni ödeme ekle
 app.post('/api/odemeler', (req, res) => {
-  const { musteri_adi, firma_adi, odeme_turu, tutar, para_birimi, vade_tarihi, aciklama, cek_no, banka, cek_sahibi, kredi_grup_id, ana_para, faiz_tutari, bsmv_tutari } = req.body;
+  const { musteri_adi, firma_adi, odeme_turu, tutar, para_birimi, vade_tarihi, aciklama, cek_no, banka, cek_sahibi, kredi_grup_id, ana_para, faiz_tutari, bsmv_tutari, tarih, cari_id, rotatif_ay } = req.body;
 
   if (!tutar || !vade_tarihi) {
     return res.status(400).json({ hata: t(getLang(req), 'odemeRequired') });
   }
 
+  const cariId = cari_id ? parseInt(cari_id) : null;
+  let firma = firma_adi || '';
+  if (cariId) {
+    const kart = db.prepare('SELECT cari_adi FROM cari_kartlar WHERE id = ?').get(cariId);
+    if (kart) firma = kart.cari_adi || '';
+  }
+
   const stmt = db.prepare(`
-    INSERT INTO odemeler (musteri_adi, firma_adi, odeme_turu, tutar, para_birimi, vade_tarihi, aciklama, cek_no, banka, cek_sahibi, kredi_grup_id, ana_para, faiz_tutari, bsmv_tutari)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO odemeler (musteri_adi, firma_adi, odeme_turu, tutar, para_birimi, vade_tarihi, aciklama, cek_no, banka, cek_sahibi, kredi_grup_id, ana_para, faiz_tutari, bsmv_tutari, tarih, cari_id, rotatif_ay)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const info = stmt.run(
     '',
-    firma_adi || '',
+    firma,
     odeme_turu || 'Rotatif Kredi',
     tutar,
     para_birimi || 'TL',
@@ -2555,15 +2958,20 @@ app.post('/api/odemeler', (req, res) => {
     kredi_grup_id || '',
     ana_para || 0,
     faiz_tutari || 0,
-    bsmv_tutari || 0
+    bsmv_tutari || 0,
+    tarih || '',
+    cariId,
+    rotatif_ay || null
   );
+
+  odemeCariSenkron({ id: info.lastInsertRowid, odeme_turu, firma_adi: firma, tutar, tarih, vade_tarihi, cek_no, aciklama, cari_id: cariId });
 
   res.status(201).json({ id: info.lastInsertRowid, mesaj: t(getLang(req), 'odemeSaved') });
 });
 
 // ödeme güncelle
 app.put('/api/odemeler/:id', (req, res) => {
-  const { musteri_adi, firma_adi, odeme_turu, tutar, para_birimi, vade_tarihi, aciklama, durum, cek_no, banka, cek_sahibi, kredi_grup_id, ana_para, faiz_tutari, bsmv_tutari } = req.body;
+  const { musteri_adi, firma_adi, odeme_turu, tutar, para_birimi, vade_tarihi, aciklama, durum, cek_no, banka, cek_sahibi, kredi_grup_id, ana_para, faiz_tutari, bsmv_tutari, tarih, cari_id, rotatif_ay } = req.body;
 
   if (!tutar || !vade_tarihi) {
     return res.status(400).json({ hata: t(getLang(req), 'odemeRequired') });
@@ -2572,12 +2980,19 @@ app.put('/api/odemeler/:id', (req, res) => {
   const eski = db.prepare('SELECT * FROM odemeler WHERE id = ?').get(req.params.id);
   if (!eski) return res.status(404).json({ hata: t(getLang(req), 'fiyatNotFound') });
 
+  const cariId = cari_id ? parseInt(cari_id) : null;
+  let firma = firma_adi || '';
+  if (cariId) {
+    const kart = db.prepare('SELECT cari_adi FROM cari_kartlar WHERE id = ?').get(cariId);
+    if (kart) firma = kart.cari_adi || '';
+  }
+
   db.prepare(`
     UPDATE odemeler
-    SET musteri_adi='', firma_adi=?, odeme_turu=?, tutar=?, para_birimi=?, vade_tarihi=?, aciklama=?, durum=?, cek_no=?, banka=?, cek_sahibi=?, kredi_grup_id=?, ana_para=?, faiz_tutari=?, bsmv_tutari=?
+    SET musteri_adi='', firma_adi=?, odeme_turu=?, tutar=?, para_birimi=?, vade_tarihi=?, aciklama=?, durum=?, cek_no=?, banka=?, cek_sahibi=?, kredi_grup_id=?, ana_para=?, faiz_tutari=?, bsmv_tutari=?, tarih=?, cari_id=?, rotatif_ay=?
     WHERE id=?
   `).run(
-    firma_adi || '',
+    firma,
     odeme_turu || 'Rotatif Kredi',
     tutar,
     para_birimi || 'TL',
@@ -2591,8 +3006,13 @@ app.put('/api/odemeler/:id', (req, res) => {
     ana_para || 0,
     faiz_tutari || 0,
     bsmv_tutari || 0,
+    tarih || '',
+    cariId,
+    rotatif_ay || null,
     req.params.id
   );
+
+  odemeCariSenkron({ id: req.params.id, odeme_turu, firma_adi: firma, tutar, tarih, vade_tarihi, cek_no, aciklama, cari_id: cariId });
 
   res.json({ mesaj: t(getLang(req), 'odemeUpdated') });
 });
@@ -2600,6 +3020,7 @@ app.put('/api/odemeler/:id', (req, res) => {
 // ödeme sil
 app.delete('/api/odemeler/:id', (req, res) => {
   db.prepare('DELETE FROM odemeler WHERE id = ?').run(req.params.id);
+  cariSenkron('odeme:' + req.params.id + ':', []);
   res.json({ mesaj: t(getLang(req), 'fiyatDeleted') });
 });
 
@@ -2917,26 +3338,27 @@ app.get('/api/cari/:id/hareketler', (req, res) => {
 
 // yeni hareket ekle
 app.post('/api/cari/:id/hareketler', (req, res) => {
-  const { tarih, tur, tutar, para_birimi, aciklama, belge_no, odeme_sekli } = req.body;
+  const { tarih, tur, tutar, para_birimi, aciklama, belge_no, odeme_sekli, vade } = req.body;
   const kart = db.prepare('SELECT id FROM cari_kartlar WHERE id = ?').get(req.params.id);
   if (!kart) return res.status(404).json({ hata: t(getLang(req), 'cariNotFound') });
   if (!tarih || !tur || tutar == null) return res.status(400).json({ hata: t(getLang(req), 'cariHareketRequired') });
   const info = db.prepare(`
-    INSERT INTO cari_hareketler (cari_id, tarih, tur, tutar, para_birimi, aciklama, belge_no, odeme_sekli)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(req.params.id, tarih, tur, tutar || 0, para_birimi || 'TL', aciklama || '', belge_no || '', odeme_sekli || '');
+    INSERT INTO cari_hareketler (cari_id, tarih, tur, tutar, para_birimi, aciklama, belge_no, odeme_sekli, vade)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(req.params.id, tarih, tur, tutar || 0, para_birimi || 'TL', aciklama || '', belge_no || '', odeme_sekli || '', vade || '');
   res.status(201).json({ id: info.lastInsertRowid, mesaj: t(getLang(req), 'cariHareketCreated') });
 });
 
 // hareket güncelle
 app.put('/api/cari/hareketler/:id', (req, res) => {
-  const { tarih, tur, tutar, para_birimi, aciklama, belge_no, odeme_sekli } = req.body;
+  const { tarih, tur, tutar, para_birimi, aciklama, belge_no, odeme_sekli, vade } = req.body;
   const eski = db.prepare('SELECT * FROM cari_hareketler WHERE id = ?').get(req.params.id);
   if (!eski) return res.status(404).json({ hata: t(getLang(req), 'cariHareketNotFound') });
+  if (eski.kaynak) return res.status(400).json({ hata: t(getLang(req), 'cariHareketAutoEdit') });
   db.prepare(`
-    UPDATE cari_hareketler SET tarih=?, tur=?, tutar=?, para_birimi=?, aciklama=?, belge_no=?, odeme_sekli=?
+    UPDATE cari_hareketler SET tarih=?, tur=?, tutar=?, para_birimi=?, aciklama=?, belge_no=?, odeme_sekli=?, vade=?
     WHERE id=?
-  `).run(tarih || eski.tarih, tur || eski.tur, tutar || 0, para_birimi || 'TL', aciklama || '', belge_no || '', odeme_sekli || '', req.params.id);
+  `).run(tarih || eski.tarih, tur || eski.tur, tutar || 0, para_birimi || 'TL', aciklama || '', belge_no || '', odeme_sekli || '', vade || '', req.params.id);
   res.json({ mesaj: t(getLang(req), 'cariHareketUpdated') });
 });
 
@@ -2944,8 +3366,262 @@ app.put('/api/cari/hareketler/:id', (req, res) => {
 app.delete('/api/cari/hareketler/:id', (req, res) => {
   const eski = db.prepare('SELECT * FROM cari_hareketler WHERE id = ?').get(req.params.id);
   if (!eski) return res.status(404).json({ hata: t(getLang(req), 'cariHareketNotFound') });
+  if (eski.kaynak) return res.status(400).json({ hata: t(getLang(req), 'cariHareketAutoDelete') });
   db.prepare('DELETE FROM cari_hareketler WHERE id = ?').run(req.params.id);
   res.json({ mesaj: t(getLang(req), 'cariHareketDeleted') });
+});
+
+// ==============================
+// FATURALAB (alınan ödemeler + çek iskontosu)
+// ==============================
+app.use('/api/faturalab', requirePermission('faturalab'));
+
+// alınan ödemeleri listele (vade + iskonto durumuyla)
+app.get('/api/faturalab', (req, res) => {
+  const rows = db.prepare(`
+    SELECT h.*, c.cari_adi
+    FROM cari_hareketler h
+    LEFT JOIN cari_kartlar c ON c.id = h.cari_id
+    WHERE h.tur = 'tahsilat' AND COALESCE(h.kaynak,'') NOT LIKE 'iskonto:%'
+    ORDER BY COALESCE(h.vade, h.tarih) ASC, h.id ASC
+  `).all();
+  const bugun = new Date(); bugun.setHours(0, 0, 0, 0);
+  rows.forEach(h => {
+    let iskonto = null;
+    try { iskonto = h.iskonto_detay ? JSON.parse(h.iskonto_detay) : null; } catch(e) { iskonto = null; }
+    h._iskonto = iskonto;
+    if (h.vade) {
+      const v = new Date(h.vade + 'T00:00:00');
+      h._kalanGun = Math.round((v - bugun) / 86400000);
+    } else {
+      h._kalanGun = null;
+    }
+  });
+  res.json(rows);
+});
+
+// çeki iskonto et (nakite çevir)
+app.post('/api/faturalab/iskonto/:id', (req, res) => {
+  const { net_tutar, faiz, bsmv, komisyon, tarih, banka } = req.body;
+  const eski = db.prepare('SELECT * FROM cari_hareketler WHERE id = ?').get(req.params.id);
+  if (!eski) return res.status(404).json({ hata: t(getLang(req), 'cariHareketNotFound') });
+  if (eski.tur !== 'tahsilat') return res.status(400).json({ hata: t(getLang(req), 'faturalabOnlyAlinan') });
+  if (eski.durum === 'iskonto_edildi') return res.status(400).json({ hata: t(getLang(req), 'faturalabAlreadyIskonto') });
+  const net = parseFloat(net_tutar) || 0;
+  const detay = JSON.stringify({
+    net_tutar: net,
+    faiz: parseFloat(faiz) || 0,
+    bsmv: parseFloat(bsmv) || 0,
+    komisyon: parseFloat(komisyon) || 0,
+    tarih: tarih || '',
+    banka: banka || ''
+  });
+  db.prepare("UPDATE cari_hareketler SET durum='iskonto_edildi', iskonto_detay=? WHERE id=?").run(detay, req.params.id);
+  res.json({ mesaj: 'ok' });
+});
+
+// iskonto edilen faturaların aylık raporu
+app.get('/api/faturalab/iskonto-aylik', (req, res) => {
+  const rows = db.prepare(`
+    SELECT h.id, c.cari_adi, h.tutar, h.iskonto_detay, h.tarih
+    FROM cari_hareketler h
+    LEFT JOIN cari_kartlar c ON c.id = h.cari_id
+    WHERE h.tur = 'tahsilat' AND h.durum = 'iskonto_edildi'
+    ORDER BY h.tarih ASC
+  `).all();
+
+  const aylik = {};
+  rows.forEach(r => {
+    let d = {};
+    try { d = r.iskonto_detay ? JSON.parse(r.iskonto_detay) : {}; } catch(e) { d = {}; }
+    const tarih = d.tarih || r.tarih;
+    const key = (tarih || '').substring(0, 7);
+    if (!key || key.length < 7) return;
+    if (!aylik[key]) aylik[key] = { ay: key, adet: 0, tutar: 0, faiz: 0, bsmv: 0, komisyon: 0, net: 0, bankalar: [] };
+    const g = aylik[key];
+    g.adet++;
+    g.tutar += (parseFloat(r.tutar) || 0);
+    g.faiz += (parseFloat(d.faiz) || 0);
+    g.bsmv += (parseFloat(d.bsmv) || 0);
+    g.komisyon += (parseFloat(d.komisyon) || 0);
+    g.net += (parseFloat(d.net_tutar) || 0);
+    if (d.banka) g.bankalar.push(d.banka);
+  });
+
+  const sonuc = Object.values(aylik).sort((a, b) => a.ay.localeCompare(b.ay));
+  sonuc.forEach(g => { g.banka = g.bankalar.length ? [...new Set(g.bankalar)].join(', ') : ''; });
+  res.json(sonuc);
+});
+
+// krediler (ödeme listesindeki kredi tipleri) — gelir takip için
+// Aynı kredinin taksitleri (kredi_grup_id) tek satırda toplanır; kredi yalnız alındığı tarihte hesaba geçer.
+app.get('/api/krediler', requirePermission('gelir_takip'), (req, res) => {
+  const rows = db.prepare(`
+    SELECT id, firma_adi, odeme_turu, tutar, ana_para, faiz_tutari, bsmv_tutari, vade_tarihi, durum, kredi_grup_id, tarih
+    FROM odemeler
+    WHERE odeme_turu IN ('Taksitli Kredi', 'Spot Kredi', 'Rotatif Kredi') AND COALESCE(tarih, '') != ''
+    ORDER BY vade_tarihi ASC
+  `).all();
+  const groups = {};
+  const order = [];
+  rows.forEach(r => {
+    const key = r.kredi_grup_id ? 'g:' + r.kredi_grup_id : 'id:' + r.id;
+    if (!groups[key]) {
+      groups[key] = { id: r.id, firma_adi: r.firma_adi, odeme_turu: r.odeme_turu, ana_para: 0, faiz_tutari: 0, bsmv_tutari: 0, tutar: 0, tarih: r.tarih || r.vade_tarihi, durum: r.durum, taksit: 0 };
+      order.push(key);
+    }
+    const g = groups[key];
+    g.ana_para += (parseFloat(r.ana_para) || 0);
+    g.faiz_tutari += (parseFloat(r.faiz_tutari) || 0);
+    g.bsmv_tutari += (parseFloat(r.bsmv_tutari) || 0);
+    g.tutar += (parseFloat(r.tutar) || 0);
+    g.taksit++;
+    const t = r.tarih || r.vade_tarihi;
+    if (t && t < g.tarih) g.tarih = t;
+  });
+  res.json(order.map(key => groups[key]));
+});
+
+// ==============================
+// PAKETLEME MALZEMELERİ (stok + tüketim)
+// ==============================
+app.use('/api/paketleme', requirePermission('gerceklesen'));
+
+// bir malzemenin birim fiyatı = en son alımın birim fiyatı
+function paketlemeBirimFiyat(malzemeId) {
+  const row = db.prepare('SELECT birim_fiyat FROM paketleme_alimlar WHERE malzeme_id = ? AND adet > 0 ORDER BY tarih DESC, id DESC LIMIT 1').get(malzemeId);
+  return row ? (parseFloat(row.birim_fiyat) || 0) : 0;
+}
+
+// tüm gerçekleşen kayıtlarındaki paketleme tüketimini topla (malzeme_id → adet)
+function paketlemeTuketimMap() {
+  const map = {};
+  const rows = db.prepare("SELECT paketleme_malzeme_detay FROM gerceklesen WHERE paketleme_malzeme_detay IS NOT NULL AND paketleme_malzeme_detay != '' AND paketleme_malzeme_detay != '[]'").all();
+  rows.forEach(r => {
+    let arr = [];
+    try { arr = typeof r.paketleme_malzeme_detay === 'string' ? JSON.parse(r.paketleme_malzeme_detay) : (r.paketleme_malzeme_detay || []); } catch(e) { arr = []; }
+    if (!Array.isArray(arr)) arr = [];
+    arr.forEach(d => {
+      const mid = d.malzeme_id;
+      if (mid == null) return;
+      map[mid] = (map[mid] || 0) + (parseFloat(d.adet) || 0);
+    });
+  });
+  return map;
+}
+
+// malzemeleri özetle listele (alınan / tüketilen / kalan / birim fiyat)
+app.get('/api/paketleme/malzemeler', (req, res) => {
+  const malzemeler = db.prepare('SELECT * FROM paketleme_malzemeleri ORDER BY adi ASC').all();
+  const tuketim = paketlemeTuketimMap();
+  const ozet = malzemeler.map(m => {
+    const alim = db.prepare('SELECT COALESCE(SUM(adet),0) AS adet, COALESCE(SUM(toplam_tutar),0) AS tutar FROM paketleme_alimlar WHERE malzeme_id = ?').get(m.id);
+    const alinan = parseFloat(alim.adet) || 0;
+    const tutar = parseFloat(alim.tutar) || 0;
+    const birim = paketlemeBirimFiyat(m.id); // en son alımın birim fiyatı
+    const tuketilen = parseFloat(tuketim[m.id]) || 0;
+    return { id: m.id, adi: m.adi, alinan, tutar, birim_fiyat: birim, tuketilen, kalan: alinan - tuketilen };
+  });
+  res.json(ozet);
+});
+
+// malzeme ekle
+app.post('/api/paketleme/malzemeler', (req, res) => {
+  const { adi } = req.body;
+  if (!adi || !String(adi).trim()) return res.status(400).json({ hata: t(getLang(req), 'paketlemeMalzemeAdiRequired') });
+  const info = db.prepare('INSERT INTO paketleme_malzemeleri (adi) VALUES (?)').run(String(adi).trim());
+  res.status(201).json({ id: info.lastInsertRowid, mesaj: 'ok' });
+});
+
+// malzeme güncelle
+app.put('/api/paketleme/malzemeler/:id', (req, res) => {
+  const { adi } = req.body;
+  const eski = db.prepare('SELECT * FROM paketleme_malzemeleri WHERE id = ?').get(req.params.id);
+  if (!eski) return res.status(404).json({ hata: t(getLang(req), 'paketlemeMalzemeNotFound') });
+  db.prepare('UPDATE paketleme_malzemeleri SET adi = ? WHERE id = ?').run(adi ? String(adi).trim() : eski.adi, req.params.id);
+  res.json({ mesaj: 'ok' });
+});
+
+// malzeme sil (bağlı alımları ve cari hareketlerini de sil)
+app.delete('/api/paketleme/malzemeler/:id', (req, res) => {
+  const eski = db.prepare('SELECT * FROM paketleme_malzemeleri WHERE id = ?').get(req.params.id);
+  if (!eski) return res.status(404).json({ hata: t(getLang(req), 'paketlemeMalzemeNotFound') });
+  const alimlar = db.prepare('SELECT id FROM paketleme_alimlar WHERE malzeme_id = ?').all(req.params.id);
+  alimlar.forEach(a => cariSenkron('paketleme_alim:' + a.id + ':', []));
+  db.prepare('DELETE FROM paketleme_alimlar WHERE malzeme_id = ?').run(req.params.id);
+  db.prepare('DELETE FROM paketleme_malzemeleri WHERE id = ?').run(req.params.id);
+  res.json({ mesaj: 'ok' });
+});
+
+// toplu alımları listele
+app.get('/api/paketleme/alimlar', (req, res) => {
+  const rows = db.prepare(`
+    SELECT a.*, m.adi AS malzeme_adi, c.cari_adi
+    FROM paketleme_alimlar a
+    LEFT JOIN paketleme_malzemeleri m ON m.id = a.malzeme_id
+    LEFT JOIN cari_kartlar c ON c.id = a.cari_id
+    ORDER BY a.tarih DESC, a.id DESC
+  `).all();
+  res.json(rows);
+});
+
+// toplu alım ekle (cari seçilirse → borç)
+app.post('/api/paketleme/alimlar', (req, res) => {
+  const { malzeme_id, adet, toplam_tutar, cari_id, tarih, belge_no, notlar } = req.body;
+  if (!malzeme_id) return res.status(400).json({ hata: t(getLang(req), 'paketlemeMalzemeSeciniz') });
+  const ad = parseFloat(adet) || 0;
+  const tutar = parseFloat(toplam_tutar) || 0;
+  const birim = ad > 0 ? Math.round((tutar / ad) * 10000) / 10000 : 0;
+  const info = db.prepare(`
+    INSERT INTO paketleme_alimlar (malzeme_id, adet, toplam_tutar, birim_fiyat, cari_id, tarih, belge_no, notlar)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(malzeme_id, ad, tutar, birim, cari_id ? parseInt(cari_id) : null, tarih || new Date().toISOString().split('T')[0], belge_no || '', notlar || '');
+
+  const malzemeAdi = db.prepare('SELECT adi FROM paketleme_malzemeleri WHERE id = ?').get(malzeme_id);
+  cariSenkron('paketleme_alim:' + info.lastInsertRowid + ':', [{
+    kaynak: 'paketleme_alim:' + info.lastInsertRowid + ':',
+    cari_id,
+    tutar,
+    aciklama: 'Paketleme Alımı' + (malzemeAdi ? ' - ' + malzemeAdi.adi : ''),
+    belge_no: belge_no || ''
+  }]);
+
+  res.status(201).json({ id: info.lastInsertRowid, mesaj: 'ok' });
+});
+
+// toplu alım güncelle
+app.put('/api/paketleme/alimlar/:id', (req, res) => {
+  const { malzeme_id, adet, toplam_tutar, cari_id, tarih, belge_no, notlar } = req.body;
+  const eski = db.prepare('SELECT * FROM paketleme_alimlar WHERE id = ?').get(req.params.id);
+  if (!eski) return res.status(404).json({ hata: t(getLang(req), 'paketlemeAlimNotFound') });
+  const mid = malzeme_id || eski.malzeme_id;
+  const ad = parseFloat(adet) || 0;
+  const tutar = parseFloat(toplam_tutar) || 0;
+  const birim = ad > 0 ? Math.round((tutar / ad) * 10000) / 10000 : 0;
+  db.prepare(`
+    UPDATE paketleme_alimlar SET malzeme_id=?, adet=?, toplam_tutar=?, birim_fiyat=?, cari_id=?, tarih=?, belge_no=?, notlar=?
+    WHERE id=?
+  `).run(mid, ad, tutar, birim, cari_id ? parseInt(cari_id) : null, tarih || eski.tarih, belge_no || '', notlar || '', req.params.id);
+
+  const malzemeAdi = db.prepare('SELECT adi FROM paketleme_malzemeleri WHERE id = ?').get(mid);
+  cariSenkron('paketleme_alim:' + req.params.id + ':', [{
+    kaynak: 'paketleme_alim:' + req.params.id + ':',
+    cari_id,
+    tutar,
+    aciklama: 'Paketleme Alımı' + (malzemeAdi ? ' - ' + malzemeAdi.adi : ''),
+    belge_no: belge_no || ''
+  }]);
+
+  res.json({ mesaj: 'ok' });
+});
+
+// toplu alım sil
+app.delete('/api/paketleme/alimlar/:id', (req, res) => {
+  const eski = db.prepare('SELECT * FROM paketleme_alimlar WHERE id = ?').get(req.params.id);
+  if (!eski) return res.status(404).json({ hata: t(getLang(req), 'paketlemeAlimNotFound') });
+  db.prepare('DELETE FROM paketleme_alimlar WHERE id = ?').run(req.params.id);
+  cariSenkron('paketleme_alim:' + req.params.id + ':', []);
+  res.json({ mesaj: 'ok' });
 });
 
 // --- yedekleme ---

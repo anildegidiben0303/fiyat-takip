@@ -109,6 +109,18 @@ const TR = {
   cariHareketDeleted: 'Hareket silindi',
   cariHareketNotFound: 'Hareket bulunamadı',
   cariHareketRequired: 'Tarih, tür ve tutar zorunludur',
+  cariHareketAutoEdit: 'Bu hareket faturadan otomatik oluşturuldu, buradan değiştirilemez.',
+  cariHareketAutoDelete: 'Bu hareket faturadan otomatik oluşturuldu, buradan silinemez.',
+
+  // Faturalab
+  faturalabOnlyAlinan: 'Sadece alınan ödemeler iskonto edilebilir',
+  faturalabAlreadyIskonto: 'Bu ödeme zaten iskonto edilmiş',
+
+  // Paketleme
+  paketlemeMalzemeAdiRequired: 'Malzeme adı zorunludur',
+  paketlemeMalzemeNotFound: 'Malzeme bulunamadı',
+  paketlemeMalzemeSeciniz: 'Malzeme seçiniz',
+  paketlemeAlimNotFound: 'Alım bulunamadı',
 
   // Ek
   siparisAktarildi: 'Siparişe aktarıldı',
@@ -212,6 +224,18 @@ const EN = {
   cariHareketDeleted: 'Transaction deleted',
   cariHareketNotFound: 'Transaction not found',
   cariHareketRequired: 'Date, type and amount are required',
+  cariHareketAutoEdit: 'This transaction was auto-generated from an invoice and cannot be edited here.',
+  cariHareketAutoDelete: 'This transaction was auto-generated from an invoice and cannot be deleted here.',
+
+  // Invoice Lab
+  faturalabOnlyAlinan: 'Only received payments can be discounted',
+  faturalabAlreadyIskonto: 'This payment is already discounted',
+
+  // Packaging
+  paketlemeMalzemeAdiRequired: 'Material name is required',
+  paketlemeMalzemeNotFound: 'Material not found',
+  paketlemeMalzemeSeciniz: 'Select a material',
+  paketlemeAlimNotFound: 'Purchase not found',
 
   // Extra
   siparisAktarildi: 'Transferred to orders',
