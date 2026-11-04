@@ -4320,6 +4320,13 @@ function kumasInputVal(v) {
 async function loadKumasList(siparisId) {
   const tbody = document.querySelector('#kumasTable tbody');
   const bosMesaj = document.getElementById('kumasBosMesaj');
+  // Tab ile gezinirken odağı koru: re-render öncesi tabloda odaklı alanı hatırla
+  const aktifEl = document.activeElement;
+  let focusId = null, focusField = null;
+  if (aktifEl && aktifEl.tagName === 'INPUT' && tbody.contains(aktifEl)) {
+    focusId = aktifEl.getAttribute('data-id');
+    focusField = aktifEl.getAttribute('data-field');
+  }
   try {
     const renk = window._kumasRenk || '';
     const url = '/api/siparisler/' + siparisId + '/kumas' + (renk ? '?renk=' + encodeURIComponent(renk) : '');
@@ -4415,6 +4422,12 @@ async function loadKumasList(siparisId) {
 
     setTimeout(translateDOM, 100);
   } catch(e) { console.error('Kumaş listesi yüklenemedi:', e); }
+
+  // re-render sonrası odağı aynı alana geri ver (Tab akışı bozulmasın)
+  if (focusId && focusField) {
+    const el = tbody.querySelector('input[data-id="' + focusId + '"][data-field="' + focusField + '"]');
+    if (el) { try { el.focus(); el.select(); } catch(e) {} }
+  }
 }
 
 async function kumasYeniEkle() {
