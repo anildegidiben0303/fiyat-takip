@@ -3012,6 +3012,13 @@ app.put('/api/odemeler/:id', (req, res) => {
     req.params.id
   );
 
+  // Aynı kredi grubundaki diğer taksitlerin carisini de güncelle (tek banka → tek cari)
+  const grupId = String(kredi_grup_id || eski.kredi_grup_id || '');
+  if (grupId) {
+    db.prepare('UPDATE odemeler SET cari_id = ?, firma_adi = ? WHERE kredi_grup_id = ? AND id != ?')
+      .run(cariId, firma, grupId, req.params.id);
+  }
+
   odemeCariSenkron({ id: req.params.id, odeme_turu, firma_adi: firma, tutar, tarih, vade_tarihi, cek_no, aciklama, cari_id: cariId });
 
   res.json({ mesaj: t(getLang(req), 'odemeUpdated') });
