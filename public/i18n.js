@@ -321,7 +321,7 @@ const TRANSLATIONS = {
 
     // --- Cari (Tedarikçi Hesapları) ---
     cari: {
-      title: 'Cari (Tedarikçi) Hesapları',
+      title: 'Cari Hesapları',
       emptyMsg: 'Henüz cari kartı yok.',
       newCari: '+ Yeni Cari',
       editCari: 'Cari Kartı Düzenle',
@@ -735,7 +735,7 @@ const TRANSLATIONS = {
     },
 
     cari: {
-      title: 'Supplier Accounts',
+      title: 'Accounts',
       emptyMsg: 'No cari cards yet.',
       newCari: '+ New Cari',
       editCari: 'Edit Cari Card',
