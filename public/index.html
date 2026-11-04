@@ -4331,9 +4331,11 @@ async function loadKumasList(siparisId) {
     const renk = window._kumasRenk || '';
     const url = '/api/siparisler/' + siparisId + '/kumas' + (renk ? '?renk=' + encodeURIComponent(renk) : '');
     const rows = await apiFetch(url).then(r => r.json());
+    window._kumasRenderLock = true;
     tbody.innerHTML = '';
     if (rows.length === 0) {
       bosMesaj.style.display = '';
+      window._kumasRenderLock = false;
       return;
     }
     bosMesaj.style.display = 'none';
@@ -4422,6 +4424,7 @@ async function loadKumasList(siparisId) {
 
     setTimeout(translateDOM, 100);
   } catch(e) { console.error('Kumaş listesi yüklenemedi:', e); }
+  window._kumasRenderLock = false;
 
   // re-render sonrası odağı aynı alana geri ver (Tab akışı bozulmasın)
   if (focusId && focusField) {
@@ -4443,6 +4446,8 @@ async function kumasYeniEkle() {
 }
 
 async function kumasAlanGuncelle(id, field, value) {
+  // Re-render sırasında DOM'dan düşen odağın tetiklediği blur'ı yoksay (sonsuz kayıt döngüsünü önler)
+  if (window._kumasRenderLock) return;
   var sipId = document.getElementById('kumasSiparisId').value;
   try {
     // Bekleyen sevkiyat değişikliklerini hemen kaydet (race condition fix)
