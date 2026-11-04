@@ -3298,6 +3298,90 @@ app.get('/api/cari', (req, res) => {
   res.json(rows);
 });
 
+// cari dökümü (Excel): cari bazlı + aylık + yıllık + hareketler
+app.get('/api/cari/dokum', async (req, res) => {
+  try {
+    const workbook = new ExcelJS.Workbook();
+    const headerStyle = { font: { bold: true, color: { argb: 'FFFFFFFF' } }, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2563EB' } }, alignment: { horizontal: 'center', vertical: 'middle' } };
+    const num = v => (parseFloat(v) || 0);
+
+    // --- 1) Cari Bazlı ---
+    const cariler = db.prepare(`
+      SELECT c.hesap_turu, c.cari_adi, c.vergi_no,
+        COALESCE((SELECT SUM(tutar) FROM cari_hareketler h WHERE h.cari_id = c.id AND h.tur = 'borc'), 0)
+        - COALESCE((SELECT SUM(tutar) FROM cari_hareketler h WHERE h.cari_id = c.id AND h.tur = 'odeme'), 0) AS borc,
+        COALESCE((SELECT SUM(tutar) FROM cari_hareketler h WHERE h.cari_id = c.id AND h.tur = 'alacak'), 0)
+        - COALESCE((SELECT SUM(tutar) FROM cari_hareketler h WHERE h.cari_id = c.id AND h.tur = 'tahsilat'), 0) AS alacak
+      FROM cari_kartlar c
+    `).all();
+
+    const turSirasi = ['Tedarikçi', 'Üretici', 'Diğer', 'Müşteri'];
+    cariler.sort((a, b) => {
+      const oa = turSirasi.indexOf(a.hesap_turu); const ob = turSirasi.indexOf(b.hesap_turu);
+      const ra = oa === -1 ? 999 : oa; const rb = ob === -1 ? 999 : ob;
+      if (ra !== rb) return ra - rb;
+      return (a.cari_adi || '').localeCompare(b.cari_adi || '', 'tr');
+    });
+
+    const wsCari = workbook.addWorksheet('Cari Bazlı');
+    wsCari.addRow(['Hesap Türü', 'Cari Adı', 'Vergi No', 'Borç (₺)', 'Alacak (₺)', 'Bakiye (₺)']);
+    cariler.forEach(c => {
+      const borc = num(c.borc), alacak = num(c.alacak);
+      wsCari.addRow([c.hesap_turu || 'Diğer', c.cari_adi, c.vergi_no || '', borc, alacak, borc - alacak]);
+    });
+    wsCari.columns = [{ width: 14 }, { width: 30 }, { width: 16 }, { width: 14 }, { width: 14 }, { width: 14 }];
+
+    // --- 2) Aylık + 3) Yıllık ---
+    const hareketler = db.prepare("SELECT tarih, tur, tutar FROM cari_hareketler WHERE tarih IS NOT NULL AND tarih != ''").all();
+    const aylik = {}, yillik = {};
+    hareketler.forEach(h => {
+      const ay = (h.tarih || '').substring(0, 7);
+      const yil = (h.tarih || '').substring(0, 4);
+      const alan = (h.tur === 'borc') ? 'borc' : (h.tur === 'odeme') ? 'odeme' : (h.tur === 'alacak') ? 'alacak' : (h.tur === 'tahsilat') ? 'tahsilat' : null;
+      if (!alan) return;
+      if (ay.length === 7) { if (!aylik[ay]) aylik[ay] = { borc: 0, odeme: 0, alacak: 0, tahsilat: 0 }; aylik[ay][alan] += num(h.tutar); }
+      if (yil.length === 4) { if (!yillik[yil]) yillik[yil] = { borc: 0, odeme: 0, alacak: 0, tahsilat: 0 }; yillik[yil][alan] += num(h.tutar); }
+    });
+
+    const net = a => a.borc - a.odeme - a.alacak + a.tahsilat;
+
+    const wsAylik = workbook.addWorksheet('Aylık');
+    wsAylik.addRow(['Ay', 'Borç (₺)', 'Ödeme (₺)', 'Alacak (₺)', 'Tahsilat (₺)', 'Net (₺)']);
+    Object.keys(aylik).sort().forEach(ay => { const a = aylik[ay]; wsAylik.addRow([ay, a.borc, a.odeme, a.alacak, a.tahsilat, net(a)]); });
+    wsAylik.columns = [{ width: 10 }, { width: 14 }, { width: 14 }, { width: 14 }, { width: 14 }, { width: 14 }];
+
+    const wsYillik = workbook.addWorksheet('Yıllık');
+    wsYillik.addRow(['Yıl', 'Borç (₺)', 'Ödeme (₺)', 'Alacak (₺)', 'Tahsilat (₺)', 'Net (₺)']);
+    Object.keys(yillik).sort().forEach(yil => { const a = yillik[yil]; wsYillik.addRow([yil, a.borc, a.odeme, a.alacak, a.tahsilat, net(a)]); });
+    wsYillik.columns = [{ width: 10 }, { width: 14 }, { width: 14 }, { width: 14 }, { width: 14 }, { width: 14 }];
+
+    // --- 4) Hareketler (detay) ---
+    const detay = db.prepare(`
+      SELECT h.tarih, c.cari_adi, h.tur, h.aciklama, h.belge_no, h.odeme_sekli, h.tutar
+      FROM cari_hareketler h
+      LEFT JOIN cari_kartlar c ON c.id = h.cari_id
+      ORDER BY h.tarih ASC, h.id ASC
+    `).all();
+    const wsDetay = workbook.addWorksheet('Hareketler');
+    wsDetay.addRow(['Tarih', 'Cari', 'Tür', 'Açıklama', 'Belge No', 'Ödeme Şekli', 'Tutar (₺)']);
+    detay.forEach(d => { wsDetay.addRow([d.tarih || '', d.cari_adi || '', d.tur || '', d.aciklama || '', d.belge_no || '', d.odeme_sekli || '', num(d.tutar)]); });
+    wsDetay.columns = [{ width: 12 }, { width: 24 }, { width: 12 }, { width: 32 }, { width: 16 }, { width: 14 }, { width: 14 }];
+
+    [wsCari, wsAylik, wsYillik, wsDetay].forEach(ws => {
+      const header = ws.getRow(1);
+      header.eachCell(cell => { cell.font = headerStyle.font; cell.fill = headerStyle.fill; cell.alignment = headerStyle.alignment; });
+      ws.views = [{ state: 'frozen', ySplit: 1 }];
+    });
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="cari_dokumu.xlsx"');
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (e) {
+    res.status(500).json({ hata: t(getLang(req), 'excelProcessError') + ': ' + e.message });
+  }
+});
+
 // tek cari kartı getir
 app.get('/api/cari/:id', (req, res) => {
   const row = db.prepare('SELECT * FROM cari_kartlar WHERE id = ?').get(req.params.id);

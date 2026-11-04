@@ -1168,6 +1168,7 @@
         <input type="text" id="cariSearchInput" placeholder="🔍 Hesap türü, cari adı veya vergi no ara...">
         <button class="btn-primary btn-sm" id="btnCariEkle">+ Yeni Cari</button>
         <button class="btn-outline btn-sm" id="btnCariRefresh">🔄 Yenile</button>
+        <button class="btn-outline btn-sm" id="btnCariDokum">📥 Döküm (Excel)</button>
       </div>
       <div style="overflow-x:auto;">
         <table id="cariTable">
@@ -7808,6 +7809,7 @@ let _cariEkstreHareketler = [];
 
 cariSearchInput.addEventListener('input', () => loadCariList(cariSearchInput.value));
 document.getElementById('btnCariRefresh').addEventListener('click', () => { cariSearchInput.value = ''; loadCariList(''); });
+document.getElementById('btnCariDokum').addEventListener('click', () => excelIndir('/api/cari/dokum'));
 document.getElementById('btnCariEkle').addEventListener('click', () => openCariKartModal());
 document.getElementById('btnCariKartKaydet').addEventListener('click', cariKartKaydet);
 document.getElementById('btnCariHareketKaydet').addEventListener('click', cariHareketKaydet);
