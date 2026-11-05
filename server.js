@@ -3495,8 +3495,8 @@ app.get('/api/cari/:id/ekstre-pdf', async (req, res) => {
       tarih: { x: margin, w: 74 },
       tur: { x: margin + 74, w: 150 },
       belge: { x: margin + 224, w: 112 },
-      aciklama: { x: margin + 336, w: 168 },
-      borc: { x: margin + 504, w: 88 },
+      aciklama: { x: margin + 336, w: 156 },
+      borc: { x: margin + 492, w: 100 },
       alacak: { x: margin + 592, w: 88 },
       bakiye: { x: margin + 680, w: 90 }
     };
@@ -3508,8 +3508,8 @@ app.get('/api/cari/:id/ekstre-pdf', async (req, res) => {
     doc.text('FİŞ TÜRÜ', cols.tur.x, tabloY + 5, { width: cols.tur.w });
     doc.text('BELGE NO', cols.belge.x, tabloY + 5, { width: cols.belge.w });
     doc.text('AÇIKLAMA', cols.aciklama.x, tabloY + 5, { width: cols.aciklama.w });
-    doc.text('BORÇ', cols.borc.x, tabloY + 5, { width: cols.borc.w, align: 'right' });
-    doc.text('ALACAK', cols.alacak.x, tabloY + 5, { width: cols.alacak.w, align: 'right' });
+    doc.text('YAPILAN ÖDEME', cols.borc.x, tabloY + 5, { width: cols.borc.w, align: 'right' });
+    doc.text('BORÇ', cols.alacak.x, tabloY + 5, { width: cols.alacak.w, align: 'right' });
     doc.text('BAKİYE', cols.bakiye.x, tabloY + 5, { width: cols.bakiye.w, align: 'right' });
     doc.fillColor('#000000');
 
@@ -3546,7 +3546,7 @@ app.get('/api/cari/:id/ekstre-pdf', async (req, res) => {
     // toplamlar satırı
     doc.moveTo(margin, y).lineTo(rightX, y).stroke();
     doc.font(FB).fontSize(9).fillColor('#000000');
-    doc.text('TOPLAMLAR :', cols.aciklama.x, y + 6, { width: cols.aciklama.w + cols.belge.w + cols.tur.w + cols.tarih.w, align: 'right' });
+    doc.text('TOPLAMLAR :', cols.tarih.x, y + 6, { width: cols.borc.x - cols.tarih.x, align: 'right' });
     doc.text(cariPdfPara.format(topBorc), cols.borc.x, y + 6, { width: cols.borc.w, align: 'right' });
     doc.text(cariPdfPara.format(topAlacak), cols.alacak.x, y + 6, { width: cols.alacak.w, align: 'right' });
     doc.font(FB).fontSize(9);
