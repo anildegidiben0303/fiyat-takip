@@ -2,9 +2,9 @@ FROM node:22-slim
 
 WORKDIR /app
 
-# better-sqlite3 native modülü için gerekli build araçları
+# better-sqlite3 native modülü için gerekli build araçları + Türkçe font (PDF)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 make gcc g++ \
+    python3 make gcc g++ fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 
 COPY package*.json ./

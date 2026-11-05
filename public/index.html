@@ -2373,7 +2373,8 @@
     </div>
     <div class="modal-body">
       <div id="cariEkstreKartBilgi" style="margin-bottom:12px;font-size:13px;color:#475569;"></div>
-      <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:10px;">
+        <button class="btn-outline btn-sm" id="btnCariEkstrePdf">🖨️ PDF Rapor</button>
         <button class="btn-primary btn-sm" id="btnCariHareketEkle">+ Hareket Ekle</button>
       </div>
       <div style="overflow-x:auto;">
@@ -7823,6 +7824,10 @@ document.getElementById('btnCariEkle').addEventListener('click', () => openCariK
 document.getElementById('btnCariKartKaydet').addEventListener('click', cariKartKaydet);
 document.getElementById('btnCariHareketKaydet').addEventListener('click', cariHareketKaydet);
 document.getElementById('btnCariHareketEkle').addEventListener('click', () => openCariHareketModal(_cariEkstreCariId));
+document.getElementById('btnCariEkstrePdf').addEventListener('click', () => {
+  if (!_cariEkstreCariId) return;
+  excelIndir('/api/cari/' + _cariEkstreCariId + '/ekstre-pdf');
+});
 document.getElementById('cariKartModal').addEventListener('click', function(e) { if (e.target === this) closeCariKartModal(); });
 document.getElementById('cariEkstreModal').addEventListener('click', function(e) { if (e.target === this) closeCariEkstreModal(); });
 document.getElementById('cariHareketModal').addEventListener('click', function(e) { if (e.target === this) closeCariHareketModal(); });
