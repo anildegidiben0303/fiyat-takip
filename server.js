@@ -3383,6 +3383,52 @@ app.get('/api/cari/dokum', async (req, res) => {
   }
 });
 
+// tüm tedarikçilerin cari ekstrelerini tek PDF'te üret
+app.get('/api/cari/tedarikci-ekstre-pdf', async (req, res) => {
+  try {
+    const kartlar = db.prepare(`
+      SELECT c.* FROM cari_kartlar c
+      WHERE c.hesap_turu = 'Tedarikçi'
+        AND EXISTS (SELECT 1 FROM cari_hareketler h WHERE h.cari_id = c.id)
+      ORDER BY c.cari_adi ASC
+    `).all();
+
+    const fonts = resolveCariPdfFonts();
+    const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 36 });
+    if (fonts) { doc.registerFont('Regular', fonts.regular); doc.registerFont('Bold', fonts.bold); }
+    const F = fonts ? 'Regular' : 'Helvetica';
+    const FB = fonts ? 'Bold' : 'Helvetica-Bold';
+
+    const margin = 36;
+    const rightX = doc.page.width - margin;
+    const now = new Date();
+    const tarihSaat = now.toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' }) + ', ' + now.toLocaleDateString('tr-TR', { weekday: 'long' });
+
+    // başlık (ilk sayfa)
+    doc.font(FB).fontSize(10).text(COMPANY_NAME, rightX - 220, margin, { width: 220, align: 'right' });
+    doc.font(F).fontSize(9).text('Sayfa No : 1', rightX - 220, margin + 14, { width: 220, align: 'right' });
+    doc.font(F).fontSize(9);
+    doc.text('Rapor Adı           : Tedarikçi Cari Hesap Ekstreleri', margin, margin);
+    doc.text('Rapor Tarih / Saat  : ' + tarihSaat, margin, margin + 14);
+    doc.text('Kullanıcı Adı       : ' + (req.user ? req.user.username : '-'), margin, margin + 28);
+    doc.moveTo(margin, margin + 46).lineTo(rightX, margin + 46).stroke();
+
+    kartlar.forEach((k, i) => {
+      if (i > 0) doc.addPage();
+      const hareketler = db.prepare('SELECT * FROM cari_hareketler WHERE cari_id = ? ORDER BY tarih ASC, id ASC').all(k.id);
+      const startY = (i === 0) ? (margin + 56) : (margin + 16);
+      cariEkstreTablo(doc, k, hareketler, F, FB, startY);
+    });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename="Tedarikci_Cari_Ekstreleri.pdf"');
+    doc.pipe(res);
+    doc.end();
+  } catch (e) {
+    res.status(500).json({ hata: t(getLang(req), 'excelProcessError') + ': ' + e.message });
+  }
+});
+
 // tek cari kartı getir
 app.get('/api/cari/:id', (req, res) => {
   const row = db.prepare('SELECT * FROM cari_kartlar WHERE id = ?').get(req.params.id);
@@ -3454,6 +3500,94 @@ function cariPdfFisTuru(h) {
   return h.tur || '';
 }
 
+function cariPdfCols() {
+  return {
+    tarih: { x: 36, w: 74 },
+    tur: { x: 110, w: 150 },
+    belge: { x: 260, w: 112 },
+    aciklama: { x: 372, w: 156 },
+    borc: { x: 528, w: 100 },
+    alacak: { x: 628, w: 88 },
+    bakiye: { x: 716, w: 90 }
+  };
+}
+
+// Tek cari için ekstre bölümünü çizer (startY'den başlar, taşarsa yeni sayfa açar); bitiş Y döner
+function cariEkstreTablo(doc, kart, hareketler, F, FB, startY) {
+  const margin = 36;
+  const rightX = doc.page.width - margin;
+  const pageH = doc.page.height;
+  const cols = cariPdfCols();
+
+  const cizBaslik = (y) => {
+    doc.rect(margin, y, rightX - margin, 18).fill('#2563eb');
+    doc.font(FB).fontSize(9).fillColor('#ffffff');
+    doc.text('FİŞ TARİH', cols.tarih.x, y + 5, { width: cols.tarih.w });
+    doc.text('FİŞ TÜRÜ', cols.tur.x, y + 5, { width: cols.tur.w });
+    doc.text('BELGE NO', cols.belge.x, y + 5, { width: cols.belge.w });
+    doc.text('AÇIKLAMA', cols.aciklama.x, y + 5, { width: cols.aciklama.w });
+    doc.text('YAPILAN ÖDEME', cols.borc.x, y + 5, { width: cols.borc.w, align: 'right' });
+    doc.text('BORÇ', cols.alacak.x, y + 5, { width: cols.alacak.w, align: 'right' });
+    doc.text('BAKİYE', cols.bakiye.x, y + 5, { width: cols.bakiye.w, align: 'right' });
+    doc.fillColor('#000000');
+  };
+
+  const cariKod = String(kart.id).padStart(10, '0');
+  doc.font(FB).fontSize(11).text(cariKod + '   ' + (kart.hesap_turu || 'Tedarikçi'), margin, startY);
+  doc.font(FB).fontSize(14).text(kart.cari_adi || '', margin, startY + 18);
+
+  let y = startY + 44;
+  cizBaslik(y);
+  y += 18;
+
+  const yeniSayfa = () => {
+    if (y > pageH - margin - 24) {
+      doc.addPage();
+      y = margin;
+      cizBaslik(y);
+      y += 18;
+    }
+  };
+
+  let running = 0, topBorc = 0, topAlacak = 0;
+
+  if (hareketler.length === 0) {
+    doc.font(F).fontSize(9).fillColor('#64748b');
+    doc.text('Hareket yok.', margin, y + 4);
+    y += 22;
+  } else {
+    hareketler.forEach(h => {
+      yeniSayfa();
+      const borcVal = (h.tur === 'alacak' || h.tur === 'odeme') ? (parseFloat(h.tutar) || 0) : 0;
+      const alacakVal = (h.tur === 'borc' || h.tur === 'tahsilat') ? (parseFloat(h.tutar) || 0) : 0;
+      running += borcVal - alacakVal;
+      topBorc += borcVal;
+      topAlacak += alacakVal;
+      const isaret = running < 0 ? '(A)' : (running > 0 ? '(B)' : '(.)');
+      doc.font(F).fontSize(9).fillColor('#000000');
+      doc.text(cariPdfTarih(h.tarih), cols.tarih.x, y + 4, { width: cols.tarih.w, ellipsis: true });
+      doc.text(cariPdfFisTuru(h), cols.tur.x, y + 4, { width: cols.tur.w, ellipsis: true });
+      doc.text(h.belge_no || '', cols.belge.x, y + 4, { width: cols.belge.w, ellipsis: true });
+      doc.text(h.aciklama || '', cols.aciklama.x, y + 4, { width: cols.aciklama.w, ellipsis: true });
+      doc.text(borcVal ? cariPdfPara.format(borcVal) : '', cols.borc.x, y + 4, { width: cols.borc.w, align: 'right' });
+      doc.text(alacakVal ? cariPdfPara.format(alacakVal) : '', cols.alacak.x, y + 4, { width: cols.alacak.w, align: 'right' });
+      doc.text(cariPdfPara.format(running) + ' ' + isaret, cols.bakiye.x, y + 4, { width: cols.bakiye.w, align: 'right' });
+      y += 18;
+    });
+  }
+
+  yeniSayfa();
+  doc.moveTo(margin, y).lineTo(rightX, y).stroke();
+  doc.font(FB).fontSize(9).fillColor('#000000');
+  doc.text('TOPLAMLAR :', cols.tarih.x, y + 6, { width: cols.borc.x - cols.tarih.x, align: 'right' });
+  doc.text(cariPdfPara.format(topBorc), cols.borc.x, y + 6, { width: cols.borc.w, align: 'right' });
+  doc.text(cariPdfPara.format(topAlacak), cols.alacak.x, y + 6, { width: cols.alacak.w, align: 'right' });
+  doc.font(FB).fontSize(9);
+  doc.text(cariPdfPara.format(topBorc - topAlacak) + ' ' + ((topBorc - topAlacak) < 0 ? '(A)' : (topBorc - topAlacak) > 0 ? '(B)' : '(.)'), cols.bakiye.x, y + 6, { width: cols.bakiye.w, align: 'right' });
+  y += 26;
+  return y;
+}
+
 // cari ekstre raporu (PDF) — örnek "Cari Hesap Ekstresi" düzeninde
 app.get('/api/cari/:id/ekstre-pdf', async (req, res) => {
   try {
@@ -3484,73 +3618,8 @@ app.get('/api/cari/:id/ekstre-pdf', async (req, res) => {
 
     doc.moveTo(margin, margin + 46).lineTo(rightX, margin + 46).stroke();
 
-    // --- Cari bilgileri ---
-    const cariKod = String(kart.id).padStart(10, '0');
-    doc.font(FB).fontSize(11).text(cariKod + '   ' + (kart.hesap_turu || 'Tedarikçi'), margin, margin + 56);
-    doc.font(FB).fontSize(14).text(kart.cari_adi || '', margin, margin + 74);
-
-    // --- Tablo ---
-    const tabloY = margin + 104;
-    const cols = {
-      tarih: { x: margin, w: 74 },
-      tur: { x: margin + 74, w: 150 },
-      belge: { x: margin + 224, w: 112 },
-      aciklama: { x: margin + 336, w: 156 },
-      borc: { x: margin + 492, w: 100 },
-      alacak: { x: margin + 592, w: 88 },
-      bakiye: { x: margin + 680, w: 90 }
-    };
-
-    // başlık satırı (arka planlı)
-    doc.rect(margin, tabloY, rightX - margin, 18).fill('#2563eb');
-    doc.font(FB).fontSize(9).fillColor('#ffffff');
-    doc.text('FİŞ TARİH', cols.tarih.x, tabloY + 5, { width: cols.tarih.w });
-    doc.text('FİŞ TÜRÜ', cols.tur.x, tabloY + 5, { width: cols.tur.w });
-    doc.text('BELGE NO', cols.belge.x, tabloY + 5, { width: cols.belge.w });
-    doc.text('AÇIKLAMA', cols.aciklama.x, tabloY + 5, { width: cols.aciklama.w });
-    doc.text('YAPILAN ÖDEME', cols.borc.x, tabloY + 5, { width: cols.borc.w, align: 'right' });
-    doc.text('BORÇ', cols.alacak.x, tabloY + 5, { width: cols.alacak.w, align: 'right' });
-    doc.text('BAKİYE', cols.bakiye.x, tabloY + 5, { width: cols.bakiye.w, align: 'right' });
-    doc.fillColor('#000000');
-
-    let y = tabloY + 18;
-    let running = 0;
-    let topBorc = 0, topAlacak = 0;
-
-    const satirCiz = (h) => {
-      const borcVal = (h.tur === 'alacak' || h.tur === 'odeme') ? (parseFloat(h.tutar) || 0) : 0;
-      const alacakVal = (h.tur === 'borc' || h.tur === 'tahsilat') ? (parseFloat(h.tutar) || 0) : 0;
-      running += borcVal - alacakVal;
-      topBorc += borcVal;
-      topAlacak += alacakVal;
-      const isaret = running < 0 ? '(A)' : (running > 0 ? '(B)' : '(.)');
-      doc.font(F).fontSize(9).fillColor('#000000');
-      doc.text(cariPdfTarih(h.tarih), cols.tarih.x, y + 4, { width: cols.tarih.w, ellipsis: true });
-      doc.text(cariPdfFisTuru(h), cols.tur.x, y + 4, { width: cols.tur.w, ellipsis: true });
-      doc.text(h.belge_no || '', cols.belge.x, y + 4, { width: cols.belge.w, ellipsis: true });
-      doc.text(h.aciklama || '', cols.aciklama.x, y + 4, { width: cols.aciklama.w, ellipsis: true });
-      doc.text(borcVal ? cariPdfPara.format(borcVal) : '', cols.borc.x, y + 4, { width: cols.borc.w, align: 'right' });
-      doc.text(alacakVal ? cariPdfPara.format(alacakVal) : '', cols.alacak.x, y + 4, { width: cols.alacak.w, align: 'right' });
-      doc.text(cariPdfPara.format(running) + ' ' + isaret, cols.bakiye.x, y + 4, { width: cols.bakiye.w, align: 'right' });
-      y += 18;
-    };
-
-    if (hareketler.length === 0) {
-      doc.font(F).fontSize(9).fillColor('#64748b');
-      doc.text('Hareket yok.', margin, y + 4);
-      y += 20;
-    } else {
-      hareketler.forEach(satirCiz);
-    }
-
-    // toplamlar satırı
-    doc.moveTo(margin, y).lineTo(rightX, y).stroke();
-    doc.font(FB).fontSize(9).fillColor('#000000');
-    doc.text('TOPLAMLAR :', cols.tarih.x, y + 6, { width: cols.borc.x - cols.tarih.x, align: 'right' });
-    doc.text(cariPdfPara.format(topBorc), cols.borc.x, y + 6, { width: cols.borc.w, align: 'right' });
-    doc.text(cariPdfPara.format(topAlacak), cols.alacak.x, y + 6, { width: cols.alacak.w, align: 'right' });
-    doc.font(FB).fontSize(9);
-    doc.text(cariPdfPara.format(topBorc - topAlacak) + ' ' + ((topBorc - topAlacak) < 0 ? '(A)' : (topBorc - topAlacak) > 0 ? '(B)' : '(.)'), cols.bakiye.x, y + 6, { width: cols.bakiye.w, align: 'right' });
+    // --- Cari bilgileri + tablo ---
+    cariEkstreTablo(doc, kart, hareketler, F, FB, margin + 56);
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'attachment; filename="Cari_Ekstre_' + String(kart.id) + '.pdf"');
