@@ -3493,7 +3493,7 @@ app.get('/api/faturalab', (req, res) => {
 
 // çeki iskonto et (nakite çevir)
 app.post('/api/faturalab/iskonto/:id', (req, res) => {
-  const { net_tutar, faiz, bsmv, komisyon, tarih, banka } = req.body;
+  const { net_tutar, faiz, bsmv, komisyon, kalan_tutar, tarih, banka } = req.body;
   const eski = db.prepare('SELECT * FROM cari_hareketler WHERE id = ?').get(req.params.id);
   if (!eski) return res.status(404).json({ hata: t(getLang(req), 'cariHareketNotFound') });
   if (eski.tur !== 'tahsilat') return res.status(400).json({ hata: t(getLang(req), 'faturalabOnlyAlinan') });
@@ -3504,6 +3504,7 @@ app.post('/api/faturalab/iskonto/:id', (req, res) => {
     faiz: parseFloat(faiz) || 0,
     bsmv: parseFloat(bsmv) || 0,
     komisyon: parseFloat(komisyon) || 0,
+    kalan_tutar: parseFloat(kalan_tutar) || 0,
     tarih: tarih || '',
     banka: banka || ''
   });

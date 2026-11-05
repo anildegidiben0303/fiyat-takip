@@ -1321,7 +1321,15 @@
           <label>Komisyon (₺)</label>
           <input type="number" id="faturalabKomisyonOrani" step="0.01" min="0" value="0" oninput="faturalabIskontoHesapla()">
         </div>
-        <div class="full">
+        <div>
+          <label>Aynı Vadede Kalan (₺)</label>
+          <input type="number" id="faturalabKalanTutar" step="0.01" min="0" value="0" oninput="faturalabIskontoHesapla()">
+        </div>
+        <div>
+          <label>Tarih</label>
+          <input type="date" id="faturalabTarih">
+        </div>
+        <div>
           <label>Banka</label>
           <input type="text" id="faturalabBanka" placeholder="İskonto yapılan banka">
         </div>
@@ -2669,6 +2677,7 @@ el = document.getElementById('tabBtnGelirTakip'); if (el) el.childNodes[0].textC
       'İskonto Hesapla': 'faturalab.iskontoHesapla',
       'Faiz (₺)': 'faturalab.fieldFaiz', 'BSMV (₺)': 'faturalab.fieldBsmv',
       'Komisyon (₺)': 'faturalab.fieldKomisyon',
+      'Aynı Vadede Kalan (₺)': 'faturalab.fieldKalan',
       'İskonto yapılan banka': 'faturalab.bankaPlaceholder',
       'Haneye Giren Nakit': 'faturalab.haneyeGiren',
       'Nakite Çevir': 'faturalab.nakiteCevir',
@@ -8353,7 +8362,7 @@ async function loadFaturalab() {
         '<td style="font-weight:600;">' + esc(h.cari_adi || '—') + '</td>' +
         '<td>' + esc(h.belge_no || '—') + '</td>' +
         '<td>' + esc(h.odeme_sekli || '—') + '</td>' +
-        '<td class="price">₺ ' + formatPara(h.tutar) + (iskonto ? '<br><span style="color:#059669;font-size:11px;">Net: ₺ ' + formatPara(iskonto.net_tutar) + '</span><br><span style="font-size:10px;color:#64748b;">Faiz: ₺ ' + formatPara(iskonto.faiz) + ' · BSMV: ₺ ' + formatPara(iskonto.bsmv) + ' · Kom: ₺ ' + formatPara(iskonto.komisyon) + '</span>' : '') + '</td>' +
+        '<td class="price">₺ ' + formatPara(h.tutar) + (iskonto ? '<br><span style="color:#059669;font-size:11px;">Net: ₺ ' + formatPara(iskonto.net_tutar) + '</span><br><span style="font-size:10px;color:#64748b;">Faiz: ₺ ' + formatPara(iskonto.faiz) + ' · BSMV: ₺ ' + formatPara(iskonto.bsmv) + ' · Kom: ₺ ' + formatPara(iskonto.komisyon) + (iskonto.kalan_tutar ? ' · Kalan: ₺ ' + formatPara(iskonto.kalan_tutar) : '') + '</span>' : '') + '</td>' +
         '<td>' + formatTarih(h.tarih) + '</td>' +
         '<td>' + (h.vade ? formatTarih(h.vade) : '—') + '</td>' +
         '<td>' + (kalan != null ? (kalan < 0 ? '<span style="color:#dc2626;">' + Math.abs(kalan) + ' gün gecikti</span>' : kalan + ' gün') : '—') + '</td>' +
@@ -8407,6 +8416,8 @@ function openFaturalabIskontoModal(id) {
   document.getElementById('faturalabFaizOrani').value = '';
   document.getElementById('faturalabBsmvOrani').value = '';
   document.getElementById('faturalabKomisyonOrani').value = '';
+  document.getElementById('faturalabKalanTutar').value = '';
+  document.getElementById('faturalabTarih').value = new Date().toISOString().split('T')[0];
   document.getElementById('faturalabBanka').value = '';
   faturalabIskontoHesapla();
   document.getElementById('faturalabIskontoModal').classList.add('show');
@@ -8420,7 +8431,8 @@ function faturalabIskontoHesapla() {
   const faiz = parseFloat(document.getElementById('faturalabFaizOrani').value) || 0;
   const bsmv = parseFloat(document.getElementById('faturalabBsmvOrani').value) || 0;
   const komisyon = parseFloat(document.getElementById('faturalabKomisyonOrani').value) || 0;
-  const net = Math.max(0, tutar - faiz - bsmv - komisyon);
+  const kalan = parseFloat(document.getElementById('faturalabKalanTutar').value) || 0;
+  const net = Math.max(0, tutar - faiz - bsmv - komisyon - kalan);
   document.getElementById('faturalabFaiz').textContent = '₺ ' + formatPara(faiz);
   document.getElementById('faturalabBsmv').textContent = '₺ ' + formatPara(bsmv);
   document.getElementById('faturalabKomisyon').textContent = '₺ ' + formatPara(komisyon);
@@ -8436,12 +8448,14 @@ document.getElementById('btnFaturalabIskontoKaydet').addEventListener('click', a
   const faiz = parseFloat(document.getElementById('faturalabFaizOrani').value) || 0;
   const bsmv = parseFloat(document.getElementById('faturalabBsmvOrani').value) || 0;
   const komisyon = parseFloat(document.getElementById('faturalabKomisyonOrani').value) || 0;
-  const net = Math.max(0, tutar - faiz - bsmv - komisyon);
+  const kalan = parseFloat(document.getElementById('faturalabKalanTutar').value) || 0;
+  const net = Math.max(0, tutar - faiz - bsmv - komisyon - kalan);
+  const tarih = document.getElementById('faturalabTarih').value || new Date().toISOString().split('T')[0];
   if (!confirm('Net ₺ ' + formatPara(net) + ' tutarında nakite çevrilecek. Emin misin?')) return;
   const res = await apiFetch('/api/faturalab/iskonto/' + id, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ net_tutar: net, faiz: faiz, bsmv: bsmv, komisyon: komisyon, tarih: new Date().toISOString().split('T')[0], banka: document.getElementById('faturalabBanka').value.trim() })
+    body: JSON.stringify({ net_tutar: net, faiz: faiz, bsmv: bsmv, komisyon: komisyon, kalan_tutar: kalan, tarih: tarih, banka: document.getElementById('faturalabBanka').value.trim() })
   });
   if (!res.ok) { const err = await res.json().catch(() => ({ hata: 'Hata' })); return alert('Hata: ' + (err.hata || 'İşlenemedi')); }
   showToast('💰 Nakite çevrildi (₺ ' + formatPara(net) + ')');
