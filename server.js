@@ -396,6 +396,28 @@ try { db.exec('ALTER TABLE cari_hareketler ADD COLUMN vade TEXT DEFAULT \'\''); 
 try { db.exec('ALTER TABLE cari_hareketler ADD COLUMN iskonto_detay TEXT DEFAULT \'\''); } catch (e) { /* zaten var */ }
 try { db.exec('ALTER TABLE cari_hareketler ADD COLUMN durum TEXT DEFAULT \'\''); } catch (e) { /* zaten var */ }
 
+// tek seferlik veri düzeltmeleri için meta tablosu
+db.exec(`CREATE TABLE IF NOT EXISTS app_meta (key TEXT PRIMARY KEY, value TEXT)`);
+function metaGet(key) { const r = db.prepare('SELECT value FROM app_meta WHERE key = ?').get(key); return r ? r.value : null; }
+function metaSet(key, value) { db.prepare('INSERT OR REPLACE INTO app_meta (key, value) VALUES (?, ?)').run(key, value); }
+
+// one-time: iskonto tarihini çekin kendi tarihiyle eşitle (eski kayıtlarda "bugün" kalıyordu)
+if (!metaGet('iskonto_tarih_fix_v1')) {
+  try {
+    const iskRows = db.prepare("SELECT id, tarih, iskonto_detay FROM cari_hareketler WHERE durum = 'iskonto_edildi' AND iskonto_detay != ''").all();
+    iskRows.forEach(r => {
+      try {
+        const d = JSON.parse(r.iskonto_detay);
+        if (d.tarih && r.tarih && d.tarih !== r.tarih) {
+          d.tarih = r.tarih;
+          db.prepare('UPDATE cari_hareketler SET iskonto_detay = ? WHERE id = ?').run(JSON.stringify(d), r.id);
+        }
+      } catch (e) { /* bozuk detay, atla */ }
+    });
+  } catch (e) { /* migration hatası, yoksay */ }
+  metaSet('iskonto_tarih_fix_v1', '1');
+}
+
 // mevcut admin/muhasebe kullanıcılarına cari yetkisi ekle
 try {
   const cariUsers = db.prepare("SELECT id, permissions FROM kullanicilar WHERE (rol = 'admin' OR rol = 'muhasebe') AND (permissions IS NULL OR permissions NOT LIKE '%cari%')").all();
