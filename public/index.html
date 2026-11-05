@@ -8424,7 +8424,7 @@ function openFaturalabIskontoModal(id) {
   document.getElementById('faturalabBsmvOrani').value = '';
   document.getElementById('faturalabKomisyonOrani').value = '';
   document.getElementById('faturalabKalanTutar').value = '';
-  document.getElementById('faturalabTarih').value = new Date().toISOString().split('T')[0];
+  document.getElementById('faturalabTarih').value = h.tarih || new Date().toISOString().split('T')[0];
   document.getElementById('faturalabBanka').value = '';
   faturalabIskontoHesapla();
   document.getElementById('faturalabIskontoModal').classList.add('show');
@@ -8457,7 +8457,7 @@ document.getElementById('btnFaturalabIskontoKaydet').addEventListener('click', a
   const komisyon = parseFloat(document.getElementById('faturalabKomisyonOrani').value) || 0;
   const kalan = parseFloat(document.getElementById('faturalabKalanTutar').value) || 0;
   const net = Math.max(0, tutar - faiz - bsmv - komisyon - kalan);
-  const tarih = document.getElementById('faturalabTarih').value || new Date().toISOString().split('T')[0];
+  const tarih = document.getElementById('faturalabTarih').value || (faturalabIskontoHareket && faturalabIskontoHareket.tarih) || new Date().toISOString().split('T')[0];
   if (!confirm('Net ₺ ' + formatPara(net) + ' tutarında nakite çevrilecek. Emin misin?')) return;
   const res = await apiFetch('/api/faturalab/iskonto/' + id, {
     method: 'POST',
