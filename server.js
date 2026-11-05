@@ -2925,6 +2925,37 @@ app.get('/api/odemeler/kredi-aylik', (req, res) => {
     aylik[key].odemeler.push(r);
   });
 
+  // iskonto edilen çeklerin faiz/BSMV'sini de kredi raporuna ekle (iskonto tarihine göre)
+  const iskontoRows = db.prepare("SELECT tutar, iskonto_detay FROM cari_hareketler WHERE durum = 'iskonto_edildi' AND iskonto_detay != ''").all();
+  iskontoRows.forEach(r => {
+    let d = {};
+    try { d = JSON.parse(r.iskonto_detay); } catch (e) { return; }
+    const tarih = d.tarih || '';
+    if (!tarih || tarih.length < 7) return;
+    const parts = tarih.split('-');
+    const key = parts[0] + '-' + parts[1];
+    if (!aylik[key]) {
+      aylik[key] = {
+        yil: parseInt(parts[0]),
+        ay: parseInt(parts[1]),
+        ana_para: 0,
+        faiz_tutari: 0,
+        bsmv_tutari: 0,
+        toplam_tutar: 0,
+        adet: 0,
+        odemeler: []
+      };
+    }
+    const faiz = parseFloat(d.faiz) || 0;
+    const bsmv = parseFloat(d.bsmv) || 0;
+    const tutar = parseFloat(r.tutar) || 0;
+    aylik[key].faiz_tutari += faiz;
+    aylik[key].bsmv_tutari += bsmv;
+    aylik[key].ana_para += (tutar - faiz - bsmv);
+    aylik[key].toplam_tutar += tutar;
+    aylik[key].adet++;
+  });
+
   // sıralı dizi
   const aylar = Object.values(aylik).sort((a, b) => a.yil !== b.yil ? a.yil - b.yil : a.ay - b.ay);
 
