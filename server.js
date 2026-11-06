@@ -454,6 +454,21 @@ db.exec(`
 // varsayılanları ekle
 db.prepare("INSERT OR IGNORE INTO ayarlar (anahtar, deger) VALUES ('paketleme_birim_fiyat', '2.65')").run();
 db.prepare("INSERT OR IGNORE INTO ayarlar (anahtar, deger) VALUES ('nakliye_birim_fiyat', '2.00')").run();
+db.prepare("INSERT OR IGNORE INTO ayarlar (anahtar, deger) VALUES ('aksesuar_uyari_kullanici_id', '')").run();
+
+// --- bildirimler (uyarılar) tablosu ---
+db.exec(`
+  CREATE TABLE IF NOT EXISTS bildirimler (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    kullanici_id INTEGER NOT NULL,
+    siparis_id INTEGER,
+    renk TEXT DEFAULT '',
+    mesaj TEXT DEFAULT '',
+    detay TEXT DEFAULT '[]',
+    okundu INTEGER DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+  )
+`);
 
 // --- paketleme malzemeleri (stok + tüketim) ---
 db.exec(`
@@ -1569,6 +1584,9 @@ app.put('/api/aksesuar/:id', (req, res) => {
   }));
   cariSenkron(aksKaynak, aksEntries);
 
+  // gelen adet değiştiyse aksesuar eksik uyarısını güncelle (eksik kalmadıysa bildirimi siler)
+  aksesuarUyariGuncelle(eski.siparis_id, eski.renk || '');
+
   res.json({ mesaj: t(getLang(req), 'aksesuarUpdated'), gelen_adet: gelenAdet });
 });
 
@@ -1579,6 +1597,119 @@ app.delete('/api/aksesuar/:id', (req, res) => {
   db.prepare('DELETE FROM aksesuar_takip WHERE id = ?').run(req.params.id);
   cariSenkron('aksesuar:' + req.params.id + ':', []);
   res.json({ mesaj: t(getLang(req), 'aksesuarDeleted') });
+});
+
+// --- AKSESUAR EKSİK UYARISI ---
+
+// Bir sipariş + renk için kesim adedi ile gelen aksesuar adetlerini karşılaştırır.
+// İhtiyaç, oran-orantı ile bulunur: ihtiyaç = kesim × (aksesuar sipariş adedi / kumaş sipariş adedi).
+// adet bilinmiyorsa (0) 1:1 kabul edilir (ihtiyaç = kesim).
+function aksesuarEksikRenk(siparisId, renk) {
+  const kRow = db.prepare("SELECT COALESCE(MAX(adet),0) AS adet, COALESCE(MAX(kesim_adedi),0) AS kesim FROM kumas_takip WHERE siparis_id = ? AND COALESCE(renk,'') = ?").get(siparisId, renk || '');
+  const adet = parseInt(kRow.adet) || 0;
+  const kesim = parseInt(kRow.kesim) || 0;
+  const aks = db.prepare("SELECT * FROM aksesuar_takip WHERE siparis_id = ? AND COALESCE(renk,'') = ? ORDER BY created_at ASC").all(siparisId, renk || '');
+  const eksikler = [];
+  aks.forEach(a => {
+    const siparisAdet = parseInt(a.siparis_adet) || 0;
+    const gelen = parseInt(a.gelen_adet) || 0;
+    const oran = adet > 0 ? (siparisAdet / adet) : 1;
+    const ihtiyac = Math.round(kesim * oran);
+    const eksik = ihtiyac - gelen;
+    if (eksik > 0) {
+      eksikler.push({ aksesuar_adi: a.aksesuar_adi, siparis_adet: siparisAdet, gelen_adet: gelen, ihtiyac, eksik });
+    }
+  });
+  return { renk: renk || '', adet, kesim, eksikler };
+}
+
+// renk verilirse o renk, verilmezse siparişin tüm renkleri için karşılaştırma döner
+function aksesuarEksikleri(siparisId, renk) {
+  if (renk) return [aksesuarEksikRenk(siparisId, renk)];
+  const renkSet = new Set();
+  db.prepare("SELECT DISTINCT COALESCE(renk,'') AS r FROM kumas_takip WHERE siparis_id = ?").all(siparisId).forEach(x => renkSet.add(x.r));
+  db.prepare("SELECT DISTINCT COALESCE(renk,'') AS r FROM aksesuar_takip WHERE siparis_id = ?").all(siparisId).forEach(x => renkSet.add(x.r));
+  return [...renkSet].sort().map(r => aksesuarEksikRenk(siparisId, r));
+}
+
+function aksesuarUyariAlacakKullanicilar() {
+  const row = db.prepare("SELECT deger FROM ayarlar WHERE anahtar = 'aksesuar_uyari_kullanici_id'").get();
+  if (!row || !row.deger) return [];
+  return String(row.deger).split(',').map(s => parseInt(s)).filter(id => id > 0);
+}
+
+// kesim/gelen değişince bildirimi günceller (eksik varsa oluştur/güncelle, yoksa sil)
+function aksesuarUyariGuncelle(siparisId, renk) {
+  const kullanicilar = aksesuarUyariAlacakKullanicilar();
+  const sonuc = aksesuarEksikRenk(siparisId, renk || '');
+  if (kullanicilar.length === 0) return sonuc;
+
+  const sip = db.prepare('SELECT urun_aciklamasi FROM siparisler WHERE id = ?').get(siparisId);
+  const model = (sip && sip.urun_aciklamasi) ? sip.urun_aciklamasi : ('Sipariş #' + siparisId);
+
+  if (sonuc.eksikler.length > 0) {
+    const renkEtiket = renk ? (renk + ' — ') : '';
+    const mesaj = '🧷 ' + model + ' | ' + renkEtiket + 'kesim ' + sonuc.kesim + ', eksik: ' +
+      sonuc.eksikler.map(e => e.aksesuar_adi + ' +' + e.eksik).join(', ');
+    const detay = JSON.stringify({ kesim: sonuc.kesim, eksikler: sonuc.eksikler });
+    kullanicilar.forEach(kullaniciId => {
+      const mevcut = db.prepare("SELECT id FROM bildirimler WHERE kullanici_id = ? AND siparis_id = ? AND COALESCE(renk,'') = ? AND okundu = 0").get(kullaniciId, siparisId, renk || '');
+      if (mevcut) {
+        db.prepare("UPDATE bildirimler SET mesaj = ?, detay = ?, created_at = datetime('now','localtime') WHERE id = ?").run(mesaj, detay, mevcut.id);
+      } else {
+        db.prepare('INSERT INTO bildirimler (kullanici_id, siparis_id, renk, mesaj, detay, okundu) VALUES (?, ?, ?, ?, ?, 0)').run(kullaniciId, siparisId, renk || '', mesaj, detay);
+      }
+    });
+  } else {
+    db.prepare("DELETE FROM bildirimler WHERE siparis_id = ? AND COALESCE(renk,'') = ?").run(siparisId, renk || '');
+  }
+  return sonuc;
+}
+
+// karşılaştırma sonucunu döndür (kumaş modalındaki uyarı bandı için)
+app.get('/api/siparisler/:id/aksesuar-karsilastirma', (req, res) => {
+  res.json(aksesuarEksikleri(req.params.id, req.query.renk || ''));
+});
+
+// bildirimler (kendi bildirimlerin)
+app.get('/api/bildirimler', (req, res) => {
+  const rows = db.prepare('SELECT * FROM bildirimler WHERE kullanici_id = ? ORDER BY okundu ASC, created_at DESC').all(req.user.userId);
+  res.json(rows);
+});
+
+// okunmamış bildirim sayısı
+app.get('/api/bildirimler/sayac', (req, res) => {
+  const row = db.prepare('SELECT COUNT(*) AS n FROM bildirimler WHERE kullanici_id = ? AND okundu = 0').get(req.user.userId);
+  res.json({ sayi: row.n });
+});
+
+// bildirimi okundu işaretle
+app.post('/api/bildirimler/:id/okundu', (req, res) => {
+  db.prepare('UPDATE bildirimler SET okundu = 1 WHERE id = ? AND kullanici_id = ?').run(req.params.id, req.user.userId);
+  res.json({ mesaj: 'ok' });
+});
+
+// aksesuar uyarısı alacak kullanıcıları getir (admin)
+app.get('/api/ayarlar/aksesuar-uyari', requirePermission('kullanicilar'), (req, res) => {
+  res.json({ kullanici_ids: aksesuarUyariAlacakKullanicilar() });
+});
+
+// aksesuar uyarısı alacak kullanıcıları ayarla (admin)
+app.post('/api/ayarlar/aksesuar-uyari', requirePermission('kullanicilar'), (req, res) => {
+  let ids = req.body && req.body.kullanici_ids;
+  if (!Array.isArray(ids)) {
+    ids = String(ids || '').split(',').map(s => parseInt(s)).filter(n => n > 0);
+  } else {
+    ids = ids.map(n => parseInt(n) || 0).filter(n => n > 0);
+  }
+  ids = [...new Set(ids)];
+  if (ids.length) {
+    const placeholders = ids.map(() => '?').join(',');
+    const rows = db.prepare('SELECT id FROM kullanicilar WHERE id IN (' + placeholders + ')').all(...ids);
+    if (rows.length !== ids.length) return res.status(404).json({ hata: 'Bazı kullanıcılar bulunamadı' });
+  }
+  db.prepare("INSERT OR REPLACE INTO ayarlar (anahtar, deger) VALUES ('aksesuar_uyari_kullanici_id', ?)").run(ids.join(','));
+  res.json({ mesaj: 'Kaydedildi', kullanici_ids: ids });
 });
 
 // --- KUMAŞ TAKİP API ---
@@ -1743,7 +1874,11 @@ app.put('/api/kumas/:id', (req, res) => {
   }));
   cariSenkron(kumasKaynak, kumasEntries);
 
-  res.json({ mesaj: t(getLang(req), 'kumasUpdated'), birim_gider: Math.round(birimGider * 100) / 100, kumas_siparis: Math.round(kumasSiparis * 100) / 100, kesim_yuzdesi: hesaplananKesimYuzdesi, gerceklesen_birim: gerceklesenBirim });
+  // aksesuar eksik uyarısı (kesim adedi değiştiyse)
+  const kesimDegisti = ka !== (parseInt(eski.kesim_adedi) || 0);
+  const aksesuarEksik = kesimDegisti ? aksesuarUyariGuncelle(siparisId, renk || '').eksikler : [];
+
+  res.json({ mesaj: t(getLang(req), 'kumasUpdated'), birim_gider: Math.round(birimGider * 100) / 100, kumas_siparis: Math.round(kumasSiparis * 100) / 100, kesim_yuzdesi: hesaplananKesimYuzdesi, gerceklesen_birim: gerceklesenBirim, aksesuar_eksik: aksesuarEksik });
 });
 
 // tüm siparişlerin kumaş faturalarını getir (gerçekleşen için)
@@ -3566,7 +3701,7 @@ function cariPdfCols() {
 }
 
 // Tek cari için ekstre bölümünü çizer (startY'den başlar, taşarsa yeni sayfa açar); bitiş Y döner
-function cariEkstreTablo(doc, kart, hareketler, F, FB, startY) {
+function cariEkstreTablo(doc, kart, hareketler, F, FB, startY, acilisBakiye) {
   const margin = 36;
   const rightX = doc.page.width - margin;
   const pageH = doc.page.height;
@@ -3603,11 +3738,28 @@ function cariEkstreTablo(doc, kart, hareketler, F, FB, startY) {
   };
 
   let running = 0, topBorc = 0, topAlacak = 0;
+  const acilisVar = (acilisBakiye !== null && acilisBakiye !== undefined);
+
+  if (acilisVar) {
+    running = acilisBakiye;
+    yeniSayfa();
+    doc.font(F).fontSize(9).fillColor('#000000');
+    doc.text('', cols.tarih.x, y + 4, { width: cols.tarih.w });
+    doc.text('ÖNCEKİ BAKİYE (Devir)', cols.tur.x, y + 4, { width: cols.tur.w, ellipsis: true });
+    doc.text('', cols.belge.x, y + 4, { width: cols.belge.w });
+    doc.text('', cols.aciklama.x, y + 4, { width: cols.aciklama.w });
+    doc.text('', cols.borc.x, y + 4, { width: cols.borc.w, align: 'right' });
+    doc.text('', cols.alacak.x, y + 4, { width: cols.alacak.w, align: 'right' });
+    doc.text(cariPdfPara.format(acilisBakiye) + ' ' + (acilisBakiye < 0 ? '(A)' : acilisBakiye > 0 ? '(B)' : '(.)'), cols.bakiye.x, y + 4, { width: cols.bakiye.w, align: 'right' });
+    y += 18;
+  }
 
   if (hareketler.length === 0) {
-    doc.font(F).fontSize(9).fillColor('#64748b');
-    doc.text('Hareket yok.', margin, y + 4);
-    y += 22;
+    if (!acilisVar) {
+      doc.font(F).fontSize(9).fillColor('#64748b');
+      doc.text('Hareket yok.', margin, y + 4);
+      y += 22;
+    }
   } else {
     hareketler.forEach(h => {
       yeniSayfa();
@@ -3646,7 +3798,27 @@ app.get('/api/cari/:id/ekstre-pdf', async (req, res) => {
   try {
     const kart = db.prepare('SELECT * FROM cari_kartlar WHERE id = ?').get(req.params.id);
     if (!kart) return res.status(404).json({ hata: t(getLang(req), 'cariNotFound') });
-    const hareketler = db.prepare('SELECT * FROM cari_hareketler WHERE cari_id = ? ORDER BY tarih ASC, id ASC').all(req.params.id);
+    const tumHareketler = db.prepare('SELECT * FROM cari_hareketler WHERE cari_id = ? ORDER BY tarih ASC, id ASC').all(req.params.id);
+    const baslangic = (req.query.baslangic || '').trim();
+    const bitis = (req.query.bitis || '').trim();
+
+    // PDF'teki işaret kuralı: "YAPILAN ÖDEME" (alacak/odeme) - "BORÇ" (borc/tahsilat)
+    const pdfBorc = h => (h.tur === 'alacak' || h.tur === 'odeme') ? (parseFloat(h.tutar) || 0) : 0;
+    const pdfAlacak = h => (h.tur === 'borc' || h.tur === 'tahsilat') ? (parseFloat(h.tutar) || 0) : 0;
+
+    let hareketler = tumHareketler;
+    let acilisBakiye = null;
+    if (baslangic || bitis) {
+      acilisBakiye = 0;
+      const filtrelenmis = [];
+      tumHareketler.forEach(h => {
+        const t = h.tarih || '';
+        if (baslangic && t < baslangic) { acilisBakiye += pdfBorc(h) - pdfAlacak(h); return; }
+        if (bitis && t > bitis) return;
+        filtrelenmis.push(h);
+      });
+      hareketler = filtrelenmis;
+    }
 
     const fonts = resolveCariPdfFonts();
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 36 });
@@ -3668,11 +3840,15 @@ app.get('/api/cari/:id/ekstre-pdf', async (req, res) => {
     doc.text('Rapor Tarih / Saat  : ' + tarihSaat, margin, margin + 14);
     const kullanici = req.user ? req.user.username : '';
     doc.text('Kullanıcı Adı       : ' + (kullanici || '-'), margin, margin + 28);
+    const aralikMetin = (baslangic || bitis)
+      ? ((baslangic ? cariPdfTarih(baslangic) : 'Başlangıç') + ' - ' + (bitis ? cariPdfTarih(bitis) : 'Bugün'))
+      : 'Tümü';
+    doc.text('Tarih Aralığı       : ' + aralikMetin, margin, margin + 42);
 
-    doc.moveTo(margin, margin + 46).lineTo(rightX, margin + 46).stroke();
+    doc.moveTo(margin, margin + 56).lineTo(rightX, margin + 56).stroke();
 
     // --- Cari bilgileri + tablo ---
-    cariEkstreTablo(doc, kart, hareketler, F, FB, margin + 56);
+    cariEkstreTablo(doc, kart, hareketler, F, FB, margin + 66, acilisBakiye);
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'attachment; filename="Cari_Ekstre_' + String(kart.id) + '.pdf"');

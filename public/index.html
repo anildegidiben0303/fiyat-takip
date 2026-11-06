@@ -607,6 +607,13 @@
   <h1><img src="logo.png" id="topbarLogo" alt="" style="height:60px;vertical-align:middle;"></h1>
   <span class="ip-info" id="ipInfo">
     <span id="userInfoDisplay" style="margin-right:12px;font-weight:600;"></span>
+    <span style="position:relative;display:inline-block;margin-right:8px;">
+      <button class="btn-outline btn-sm" id="btnBildirimler" onclick="toggleBildirimPaneli()" title="Bildirimler" style="color:#000;border-color:#000;position:relative;">
+        🔔
+        <span id="bildirimSayac" style="position:absolute;top:-7px;right:-7px;background:#ef4444;color:#fff;border-radius:10px;font-size:10px;min-width:16px;height:16px;line-height:16px;text-align:center;padding:0 3px;display:none;">0</span>
+      </button>
+      <div id="bildirimPaneli" style="display:none;position:absolute;right:0;top:34px;width:380px;max-height:420px;overflow-y:auto;background:#fff;border:1px solid #e2e8f0;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.18);z-index:2000;padding:12px;text-align:left;color:#1e293b;"></div>
+    </span>
     <button class="btn-outline btn-sm" id="btnKullaniciYonetimi" onclick="openKullaniciModal()" title="Kullanıcı Yönetimi" style="color:#000;border-color:#000;margin-right:8px;display:none;">⚙️</button>
     <button class="btn-outline btn-sm" id="btnLangToggle" onclick="toggleLang()" title="Dil Değiştir / Switch Language" style="color:#000;border-color:#000;margin-right:8px;">🌐 <span id="langLabel">TR</span></button>
     <span style="margin-right:8px;display:flex;gap:4px;align-items:center;" id="themeSelector">
@@ -1168,8 +1175,6 @@
         <input type="text" id="cariSearchInput" placeholder="🔍 Hesap türü, cari adı veya vergi no ara...">
         <button class="btn-primary btn-sm" id="btnCariEkle">+ Yeni Cari</button>
         <button class="btn-outline btn-sm" id="btnCariRefresh">🔄 Yenile</button>
-        <button class="btn-outline btn-sm" id="btnCariDokum">📥 Döküm (Excel)</button>
-        <button class="btn-outline btn-sm" id="btnCariTedarikciPdf">📄 Tedarikçi Ekstresi (PDF)</button>
       </div>
       <div style="overflow-x:auto;">
         <table id="cariTable">
@@ -1964,6 +1969,7 @@
     <div class="modal-body">
       <input type="hidden" id="kumasSiparisId">
       <p style="font-size:13px;color:#475569;margin-bottom:12px;" id="kumasModelAdi"></p>
+      <div id="kumasAksesuarUyari" style="display:none;margin-bottom:12px;padding:10px 14px;background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;font-size:13px;color:#991b1b;line-height:1.5;"></div>
       <div style="overflow-x:auto;margin-bottom:12px;">
         <table style="width:100%;font-size:13px;" id="kumasTable">
           <thead>
@@ -2101,6 +2107,14 @@
     <div class="modal-body">
       <div style="margin-bottom:16px;">
         <button class="btn-primary btn-sm" id="btnYeniKullanici">+ Yeni Kullanıcı</button>
+      </div>
+      <div style="margin-bottom:16px;padding:12px;background:var(--bg-row-hover);border-radius:8px;">
+        <label style="font-weight:600;font-size:13px;">🔔 Aksesuar eksik uyarısı alacak kullanıcılar</label>
+        <div id="aksesuarUyariKullanicilar" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;"></div>
+        <div style="margin-top:8px;">
+          <button class="btn-primary btn-sm" id="btnAksesuarUyariKaydet">Kaydet</button>
+        </div>
+        <p style="font-size:11px;color:#64748b;margin:6px 0 0;">Kesim adedi, gelen aksesuar adedini geçtiğinde seçili kullanıcılara uygulama içi bildirim gider. Birden fazla seçebilirsin.</p>
       </div>
       <div style="overflow-x:auto;">
         <table id="kullaniciTable" style="width:100%;">
@@ -2374,6 +2388,13 @@
     </div>
     <div class="modal-body">
       <div id="cariEkstreKartBilgi" style="margin-bottom:12px;font-size:13px;color:#475569;"></div>
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:10px;">
+        <label style="font-size:13px;font-weight:600;color:#475569;white-space:nowrap;">📅 Tarih Aralığı:</label>
+        <input type="date" id="cariEkstreBaslangic" style="width:150px;">
+        <span style="color:#94a3b8;">→</span>
+        <input type="date" id="cariEkstreBitis" style="width:150px;">
+        <button class="btn-outline btn-sm" id="btnCariEkstreTemizle">Temizle</button>
+      </div>
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:10px;">
         <button class="btn-outline btn-sm" id="btnCariEkstrePdf">🖨️ PDF Rapor</button>
         <button class="btn-primary btn-sm" id="btnCariHareketEkle">+ Hareket Ekle</button>
@@ -2930,6 +2951,7 @@ document.getElementById('btnLogin').addEventListener('click', async () => {
     errEl.style.display = 'none';
     document.getElementById('loginPassword').value = '';
     updateUIForRole();
+    bildirimSayaciGuncelle();
 
     // yetkili sekmeleri yükle
     loadCariSecenekler();
@@ -2966,6 +2988,7 @@ function logout() {
 if (getToken()) {
   document.getElementById('loginOverlay').style.display = 'none';
   updateUIForRole();
+  bildirimSayaciGuncelle();
   const u = getUserInfo();
   if (u && u.permissions) {
     loadCariSecenekler();
@@ -4439,6 +4462,8 @@ async function loadKumasList(siparisId) {
   } catch(e) { console.error('Kumaş listesi yüklenemedi:', e); }
   window._kumasRenderLock = false;
 
+  kumasAksesuarKarsilastir(siparisId);
+
   // re-render sonrası odağı aynı alana geri ver (Tab akışı bozulmasın)
   if (focusId && focusField) {
     const el = tbody.querySelector('input[data-id="' + focusId + '"][data-field="' + focusField + '"]');
@@ -4522,6 +4547,7 @@ async function kumasAlanGuncelle(id, field, value) {
       showToast('🧮 Birim: ' + formatKumas(bg) + ' | K.Sipariş: ' + formatKumas(ks) + ' | Kesim: %' + formatKumas(ky) + ' | Gerç.Birim: ' + formatKumas(gb));
     }
     await loadKumasList(sipId);
+    bildirimSayaciGuncelle();
   } catch(e) { console.error('Güncellenemedi:', e); }
 }
 
@@ -7820,16 +7846,26 @@ let _cariEkstreHareketler = [];
 
 cariSearchInput.addEventListener('input', () => loadCariList(cariSearchInput.value));
 document.getElementById('btnCariRefresh').addEventListener('click', () => { cariSearchInput.value = ''; loadCariList(''); });
-document.getElementById('btnCariDokum').addEventListener('click', () => excelIndir('/api/cari/dokum'));
-document.getElementById('btnCariTedarikciPdf').addEventListener('click', () => excelIndir('/api/cari/tedarikci-ekstre-pdf'));
 document.getElementById('btnCariEkle').addEventListener('click', () => openCariKartModal());
 document.getElementById('btnCariKartKaydet').addEventListener('click', cariKartKaydet);
 document.getElementById('btnCariHareketKaydet').addEventListener('click', cariHareketKaydet);
 document.getElementById('btnCariHareketEkle').addEventListener('click', () => openCariHareketModal(_cariEkstreCariId));
 document.getElementById('btnCariEkstrePdf').addEventListener('click', () => {
   if (!_cariEkstreCariId) return;
-  excelIndir('/api/cari/' + _cariEkstreCariId + '/ekstre-pdf');
+  const b = document.getElementById('cariEkstreBaslangic').value;
+  const s = document.getElementById('cariEkstreBitis').value;
+  const q = [];
+  if (b) q.push('baslangic=' + encodeURIComponent(b));
+  if (s) q.push('bitis=' + encodeURIComponent(s));
+  excelIndir('/api/cari/' + _cariEkstreCariId + '/ekstre-pdf' + (q.length ? '?' + q.join('&') : ''));
 });
+document.getElementById('btnCariEkstreTemizle').addEventListener('click', () => {
+  document.getElementById('cariEkstreBaslangic').value = '';
+  document.getElementById('cariEkstreBitis').value = '';
+  renderCariEkstreTablosu();
+});
+document.getElementById('cariEkstreBaslangic').addEventListener('change', renderCariEkstreTablosu);
+document.getElementById('cariEkstreBitis').addEventListener('change', renderCariEkstreTablosu);
 document.getElementById('cariKartModal').addEventListener('click', function(e) { if (e.target === this) closeCariKartModal(); });
 document.getElementById('cariEkstreModal').addEventListener('click', function(e) { if (e.target === this) closeCariEkstreModal(); });
 document.getElementById('cariHareketModal').addEventListener('click', function(e) { if (e.target === this) closeCariHareketModal(); });
@@ -7960,6 +7996,8 @@ async function cariKartSil(id) {
 // --- Cari Ekstre ---
 async function openCariEkstre(id) {
   _cariEkstreCariId = id;
+  document.getElementById('cariEkstreBaslangic').value = '';
+  document.getElementById('cariEkstreBitis').value = '';
   document.getElementById('cariEkstreModal').classList.add('show');
   await loadCariEkstre(id);
 }
@@ -7970,7 +8008,6 @@ function closeCariEkstreModal() {
 
 async function loadCariEkstre(id) {
   const empty = document.getElementById('cariEkstreEmpty');
-  const tbody = document.querySelector('#cariEkstreTable tbody');
   try {
     const kart = await apiFetch('/api/cari/' + id).then(r => r.json());
     document.getElementById('cariEkstreTitle').textContent = '📒 ' + (kart.cari_adi || t('cari.ekstreTitle'));
@@ -7981,49 +8018,82 @@ async function loadCariEkstre(id) {
       (kart.telefon ? '<strong>' + t('cari.fieldTelefon') + ':</strong> ' + esc(kart.telefon) : '');
 
     const res = await apiFetch('/api/cari/' + id + '/hareketler');
-    const hareketler = res.ok ? await res.json() : [];
-    _cariEkstreHareketler = hareketler;
-    tbody.innerHTML = '';
-    if (hareketler.length === 0) { empty.style.display = 'block'; empty.textContent = t('cari.noHareket'); }
-    else empty.style.display = 'none';
-
-    const turInfo = {
-      borc: { label: t('cari.turBorcKisa'), color: '#dc2626' },
-      alacak: { label: t('cari.turAlacakKisa'), color: '#059669' },
-      odeme: { label: t('cari.turOdeme'), color: '#2563eb' },
-      tahsilat: { label: t('cari.turTahsilat'), color: '#0891b2' }
-    };
-
-    let bakiye = 0;
-    hareketler.forEach(h => {
-      const turKey = turInfo[h.tur] ? h.tur : 'borc';
-      const info = turInfo[turKey];
-      if (turKey === 'borc') { bakiye += h.tutar; }
-      else if (turKey === 'alacak') { bakiye -= h.tutar; }
-      else if (turKey === 'odeme') { bakiye -= h.tutar; }
-      else if (turKey === 'tahsilat') { bakiye += h.tutar; }
-
-      const otomatik = !!h.kaynak;
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${formatTarih(h.tarih)}</td>
-        <td><span style="color:${info.color};font-weight:600;">${info.label}</span>${otomatik ? ' <span style="background:#e0e7ff;color:#3730a3;font-size:10px;padding:1px 5px;border-radius:4px;">' + t('cari.fromInvoice') + '</span>' : ''}</td>
-        <td>${esc(h.aciklama || '-')}${h.odeme_sekli ? ' <span style="color:#94a3b8;font-size:11px;">(' + esc(h.odeme_sekli) + ')</span>' : ''}</td>
-        <td>${esc(h.belge_no || '-')}</td>
-        <td style="font-weight:600;color:${otomatik ? 'var(--text-primary)' : '#dc2626'};white-space:nowrap;">₺ ${formatPara(h.tutar)}</td>
-        <td class="price" style="font-weight:700;color:${bakiye > 0 ? '#dc2626' : (bakiye < 0 ? '#059669' : '#64748b')};">₺ ${formatPara(bakiye)}</td>
-        <td style="white-space:nowrap;">
-          ${otomatik ? '<span style="color:#94a3b8;font-size:12px;" title="Faturadan otomatik oluşturuldu, buradan düzenlenemez">🔒</span>' : '<button class="btn-outline btn-sm" onclick="openCariHareketModal(' + id + ', ' + h.id + ')" title="Düzenle">✏️</button> <button class="btn-danger btn-sm" onclick="cariHareketSil(' + h.id + ')" title="Sil">🗑</button>'}
-        </td>
-      `;
-      tbody.appendChild(tr);
-    });
-
+    _cariEkstreHareketler = res.ok ? await res.json() : [];
+    renderCariEkstreTablosu();
     setTimeout(translateDOM, 100);
   } catch (e) {
     empty.textContent = t('cari.errorLoad');
     empty.style.display = 'block';
   }
+}
+
+function renderCariEkstreTablosu() {
+  const empty = document.getElementById('cariEkstreEmpty');
+  const tbody = document.querySelector('#cariEkstreTable tbody');
+  const baslangic = document.getElementById('cariEkstreBaslangic').value;
+  const bitis = document.getElementById('cariEkstreBitis').value;
+  const aralikVar = !!(baslangic || bitis);
+
+  const isaret = tur => (tur === 'borc' || tur === 'tahsilat') ? 1 : (tur === 'alacak' || tur === 'odeme') ? -1 : 0;
+
+  let acilis = 0;
+  const list = [];
+  _cariEkstreHareketler.forEach(h => {
+    const t = h.tarih || '';
+    if (baslangic && t < baslangic) { acilis += (parseFloat(h.tutar) || 0) * isaret(h.tur); return; }
+    if (bitis && t > bitis) return;
+    list.push(h);
+  });
+
+  tbody.innerHTML = '';
+  if (list.length === 0 && !aralikVar) { empty.style.display = 'block'; empty.textContent = t('cari.noHareket'); }
+  else empty.style.display = 'none';
+
+  const turInfo = {
+    borc: { label: t('cari.turBorcKisa'), color: '#dc2626' },
+    alacak: { label: t('cari.turAlacakKisa'), color: '#059669' },
+    odeme: { label: t('cari.turOdeme'), color: '#2563eb' },
+    tahsilat: { label: t('cari.turTahsilat'), color: '#0891b2' }
+  };
+
+  let bakiye = acilis;
+
+  if (aralikVar) {
+    const tr = document.createElement('tr');
+    tr.style.background = '#f1f5f9';
+    tr.innerHTML = `
+      <td></td>
+      <td style="font-weight:700;color:#475569;">📌 Önceki Bakiye</td>
+      <td></td><td></td><td></td>
+      <td class="price" style="font-weight:700;color:${bakiye > 0 ? '#dc2626' : (bakiye < 0 ? '#059669' : '#64748b')};">₺ ${formatPara(bakiye)}</td>
+      <td></td>
+    `;
+    tbody.appendChild(tr);
+  }
+
+  list.forEach(h => {
+    const turKey = turInfo[h.tur] ? h.tur : 'borc';
+    const info = turInfo[turKey];
+    if (turKey === 'borc') { bakiye += h.tutar; }
+    else if (turKey === 'alacak') { bakiye -= h.tutar; }
+    else if (turKey === 'odeme') { bakiye -= h.tutar; }
+    else if (turKey === 'tahsilat') { bakiye += h.tutar; }
+
+    const otomatik = !!h.kaynak;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${formatTarih(h.tarih)}</td>
+      <td><span style="color:${info.color};font-weight:600;">${info.label}</span>${otomatik ? ' <span style="background:#e0e7ff;color:#3730a3;font-size:10px;padding:1px 5px;border-radius:4px;">' + t('cari.fromInvoice') + '</span>' : ''}</td>
+      <td>${esc(h.aciklama || '-')}${h.odeme_sekli ? ' <span style="color:#94a3b8;font-size:11px;">(' + esc(h.odeme_sekli) + ')</span>' : ''}</td>
+      <td>${esc(h.belge_no || '-')}</td>
+      <td style="font-weight:600;color:${otomatik ? 'var(--text-primary)' : '#dc2626'};white-space:nowrap;">₺ ${formatPara(h.tutar)}</td>
+      <td class="price" style="font-weight:700;color:${bakiye > 0 ? '#dc2626' : (bakiye < 0 ? '#059669' : '#64748b')};">₺ ${formatPara(bakiye)}</td>
+      <td style="white-space:nowrap;">
+        ${otomatik ? '<span style="color:#94a3b8;font-size:12px;" title="Faturadan otomatik oluşturuldu, buradan düzenlenemez">🔒</span>' : '<button class="btn-outline btn-sm" onclick="openCariHareketModal(' + _cariEkstreCariId + ', ' + h.id + ')" title="Düzenle">✏️</button> <button class="btn-danger btn-sm" onclick="cariHareketSil(' + h.id + ')" title="Sil">🗑</button>'}
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
 }
 
 // --- Cari Hareket ---
@@ -8610,6 +8680,8 @@ async function loadKullaniciList() {
 
     tbody.appendChild(tr);
   });
+
+  aksesuarUyariAyarYukle();
 }
 
 document.getElementById('btnYeniKullanici').addEventListener('click', () => {
@@ -8686,6 +8758,126 @@ async function kullaniciSil(id, username) {
   showToast('🗑 Kullanıcı silindi');
   await loadKullaniciList();
 }
+
+// --- Bildirimler (uyarılar) ---
+async function bildirimSayaciGuncelle() {
+  try {
+    const res = await apiFetch('/api/bildirimler/sayac');
+    const data = await res.json();
+    const sayac = document.getElementById('bildirimSayac');
+    if (sayac) {
+      if (data.sayi > 0) { sayac.textContent = data.sayi; sayac.style.display = ''; }
+      else { sayac.style.display = 'none'; }
+    }
+  } catch(e) {}
+}
+
+async function bildirimleriYukle() {
+  const panel = document.getElementById('bildirimPaneli');
+  try {
+    const res = await apiFetch('/api/bildirimler');
+    const rows = await res.json();
+    if (rows.length === 0) {
+      panel.innerHTML = '<div style="text-align:center;color:#94a3b8;padding:16px;">Bildirim yok.</div>';
+      return;
+    }
+    panel.innerHTML = rows.map(b => {
+      const tarih = (b.created_at || '').replace('T', ' ').slice(0, 16);
+      return '<div style="padding:8px 10px;border:1px solid #e2e8f0;border-radius:6px;margin-bottom:8px;' + (b.okundu ? 'opacity:.6;' : 'background:#fff7ed;border-color:#fdba74;') + '">' +
+        '<div style="font-size:13px;font-weight:600;">' + esc(b.mesaj) + '</div>' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;">' +
+          '<span style="font-size:11px;color:#94a3b8;">' + tarih + '</span>' +
+          (b.okundu ? '<span style="font-size:11px;color:#059669;">✓ okundu</span>' : '<button class="btn-outline btn-sm" onclick="bildirimOkundu(' + b.id + ')" style="font-size:11px;padding:2px 8px;">Okundu</button>') +
+        '</div>' +
+      '</div>';
+    }).join('');
+  } catch(e) { panel.innerHTML = '<div style="color:#ef4444;padding:8px;">Yüklenemedi.</div>'; }
+}
+
+function toggleBildirimPaneli() {
+  const panel = document.getElementById('bildirimPaneli');
+  const aciliyor = panel.style.display === 'none';
+  panel.style.display = aciliyor ? 'block' : 'none';
+  if (aciliyor) bildirimleriYukle();
+}
+
+async function bildirimOkundu(id) {
+  try {
+    await apiFetch('/api/bildirimler/' + id + '/okundu', { method: 'POST' });
+    await bildirimleriYukle();
+    await bildirimSayaciGuncelle();
+  } catch(e) {}
+}
+
+document.addEventListener('click', function(e) {
+  const panel = document.getElementById('bildirimPaneli');
+  const btn = document.getElementById('btnBildirimler');
+  if (panel && btn && panel.style.display === 'block' && !btn.contains(e.target) && !panel.contains(e.target)) {
+    panel.style.display = 'none';
+  }
+});
+
+// --- Aksesuar eksik uyarısı: alıcı seçimi (admin) ---
+async function aksesuarUyariAyarYukle() {
+  const kutu = document.getElementById('aksesuarUyariKullanicilar');
+  if (!kutu) return;
+  try {
+    const users = Object.values(_kullaniciCache);
+    const res = await apiFetch('/api/ayarlar/aksesuar-uyari');
+    const data = await res.json();
+    const secili = Array.isArray(data.kullanici_ids) ? data.kullanici_ids : [];
+    kutu.innerHTML = users.map(u =>
+      '<label style="display:flex;align-items:center;gap:4px;font-weight:400;cursor:pointer;background:#fff;padding:4px 10px;border-radius:6px;border:1px solid #e2e8f0;">' +
+        '<input type="checkbox" value="' + u.id + '" ' + (secili.includes(u.id) ? 'checked' : '') + ' style="width:16px;height:16px;"> ' +
+        esc(u.username) + ' (' + u.rol + ')' +
+      '</label>'
+    ).join('') || '<span style="color:#94a3b8;font-size:12px;">Kullanıcı yok.</span>';
+  } catch(e) {}
+}
+
+document.getElementById('btnAksesuarUyariKaydet').addEventListener('click', async () => {
+  const kullanici_ids = Array.from(document.querySelectorAll('#aksesuarUyariKullanicilar input[type=checkbox]:checked')).map(cb => parseInt(cb.value));
+  const res = await apiFetch('/api/ayarlar/aksesuar-uyari', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ kullanici_ids })
+  });
+  const data = await res.json();
+  if (!res.ok) return alert('Hata: ' + (data.hata || res.status));
+  showToast('🔔 ' + (data.mesaj || 'Kaydedildi'));
+});
+
+// --- Kumaş modalında aksesuar eksik bandı ---
+async function kumasAksesuarKarsilastir(siparisId) {
+  const banner = document.getElementById('kumasAksesuarUyari');
+  if (!banner) return;
+  try {
+    const renk = window._kumasRenk || '';
+    const url = '/api/siparisler/' + siparisId + '/aksesuar-karsilastirma' + (renk ? '?renk=' + encodeURIComponent(renk) : '');
+    const res = await apiFetch(url);
+    const rows = await res.json();
+    if (!Array.isArray(rows)) { banner.style.display = 'none'; return; }
+    const eksikVar = rows.some(r => r.eksikler && r.eksikler.length > 0);
+    if (!eksikVar) { banner.style.display = 'none'; return; }
+
+    let html = '<strong>⚠️ Aksesuar eksik — ilave geçmesi gereken miktarlar:</strong>';
+    rows.forEach(r => {
+      if (!r.eksikler || r.eksikler.length === 0) return;
+      const siparisEtiket = (r.adet !== undefined && r.adet > 0) ? (' / Sipariş: ' + r.adet) : '';
+      const baslik = r.renk
+        ? ('<div style="margin-top:6px;font-weight:700;">Renk: ' + esc(r.renk) + ' — Kesim: ' + r.kesim + siparisEtiket + '</div>')
+        : ('<div style="margin-top:6px;font-weight:700;">Kesim: ' + r.kesim + siparisEtiket + '</div>');
+      html += baslik;
+      r.eksikler.forEach(e => {
+        html += '<div style="margin-left:14px;">• ' + esc(e.aksesuar_adi) + ': <b style="color:#dc2626;">+' + e.eksik + ' eksik</b> <span style="color:#7f1d1d;">(gerekli ' + e.ihtiyac + ', gelen ' + e.gelen_adet + ')</span></div>';
+      });
+    });
+    banner.innerHTML = html;
+    banner.style.display = 'block';
+  } catch(e) { banner.style.display = 'none'; }
+}
+
+setInterval(() => { if (getToken()) bildirimSayaciGuncelle(); }, 60000);
 
 </script>
 </body>
